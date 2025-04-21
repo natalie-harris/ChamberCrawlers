@@ -9,3 +9,7 @@ bounds: tuple of max and min coordinates on each axis for each shape
 total_bounds: tuple of max and min coordinates on each axis for entire GeoSeries
 geom_type: type of geometry.
 is_valid: tests if coordinates make a shape that is reasonable geometric shape (according to this).
+
+## Agent-Based Modeling for Archaeology - Chapter 7
+https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
+
