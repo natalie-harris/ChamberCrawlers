@@ -21,3 +21,5 @@ https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
 - I have changed the output file name and location for `json-to-csv.py` in case you choose to run it again so it does not overwrite my CSV.
 - The CSV was in the `data` folder was hand-audited and added to. Both in column values and for row KV-32. 
 
+- In regards to the dynasties, if it is a -1, it still occured within the 18-20th dynasties. 
+
