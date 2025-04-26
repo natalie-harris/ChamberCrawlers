@@ -122,6 +122,6 @@ def convert_json_to_csv(json_file_path, csv_file_path):
 
 if __name__ == "__main__":
     input_json = "data/tombs_data.json"
-    output_csv = "tombs_data.csv"
+    output_csv = "tombs_data2.csv"
 
     convert_json_to_csv(input_json, output_csv)
