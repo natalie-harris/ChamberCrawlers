@@ -1,6 +1,11 @@
 # ChamberCrawlers
 Using Evolution-Inspired Models to Predict the Location of Hidden Tombs in the Eastern Valley of the Kings
 
+# Lost Pharaoh Tombs
+- Thutmese II of the 18th dynasty (found in 2022 in the Valley of the Queens)
+- Ramses VIII of the 20th dynasty
+
+
 ## GeoPandas
 https://geopandas.org/en/v0.8.2/data_structures.html#geodataframe
 ### Attributes
@@ -23,3 +28,4 @@ https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
 
 - In regards to the dynasties, if it is a -1, it still occured within the 18-20th dynasties. 
 
+- Oh and in regards to **Interior Layout**, I would group `corridors and chambers` with `corridors and chamber` 
