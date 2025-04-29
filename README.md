@@ -51,7 +51,7 @@ https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
 1. Rules
     - Elevation preference: 150 to 200 m (+/- 10-15 meters of our max and min in the dataset)
     - Don't overlap with the existing tombs (~200 m; 25 m less than the median distance between tombs).
-    - West Bank only
+    - Preference for East Valley Side
     - More rules to be added based on cultural burial practices AFTER a basic model is running
         - Model different spacing by tomb type later (royal vs official vs animal)
 2. Environment
@@ -61,7 +61,7 @@ https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
         - Each point (x, y) can have:
             - Elevation
             - Bank side (East or West)
-        - The Valley of the Kings is >1000 feet (300 m) so we'll set the dimensions to **1600 m (X) x 1100 m (Y)** (added 100 m to either side for buffer)
+        - The Valley of the Kings is 1500 x 1000 m so we'll set the dimensions to **1600 m (X) x 1100 m (Y)** (added 100 m to either side for buffer)
         [Using this map for reference](https://thebanmappingproject.com/sites/default/files/plans/Valley%20of%20the%20Kings.pdf)
     - Elevation Map: a basic elevation field.
         - Higher toward the cliffs, lower toward valley center.
@@ -73,3 +73,6 @@ https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
     - One tomb per step. Tombs were commissioned for death. A once in a lifetime event (literally). Unlikely that several tombs were being built at once. I could be wrong about this though, so we might need to change this based on research.
 
 
+### Sources
+The Theban Mapping Project for the tomb data
+EarthExplorer.USGS.gov for the elevation data 

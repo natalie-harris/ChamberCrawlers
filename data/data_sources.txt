@@ -1,2 +1,3 @@
 All Theban Tombs.csv: https://scgis.maps.arcgis.com/apps/webappviewer/index.html?id=cff7333a8b61461eb9d438d91c93ff61
 Valley of the Kings Maps.pdf: https://thebanmappingproject.com/sites/default/files/plans/Valley%20of%20the%20Kings.pdf
+n25_e032_1arc_v3.tif: https://earthexplorer.usgs.gov  

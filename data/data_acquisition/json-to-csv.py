@@ -1,3 +1,9 @@
+# Coverts the JSON data from the tombs_data.json file to a CSV file.
+# Some fields may be empty and added by hand to the CSV as -1 for empty fields.
+# Some columns were added by hand as well from info from The Theban Mapping Project 
+# (https://www.thebanmappingproject.com/)
+
+# ---------------------------------------------------------------------------- #
 import json
 import pandas as pd
 
