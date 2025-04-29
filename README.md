@@ -1,6 +1,23 @@
 # ChamberCrawlers
 Using Evolution-Inspired Models to Predict the Location of Hidden Tombs in the Eastern Valley of the Kings
 
+## Usage
+- Create and open a virtual environment
+- You'll need to run `pip install rasterio numpy matplotlib mesa` to install the libraries 
+- 
+
+## Why ABM
+Unlike a standard statistical model (which predicts "yes/no" directly),
+an ABM lets us simulate:
+
+- Builders preferring hillsides or valleys
+- Builders preferring certain elevations
+- Builders preferring distances from previous tombs
+- Builders preferring specific layouts (straight, bent corridors)
+- Builders preferring "East Bank" or "West Bank"
+
+This matches how tombs were actually planned historically.
+
 # Lost Pharaoh Tombs
 - Thutmese II of the 18th dynasty (found in 2022 in the Valley of the Queens)
 - Ramses VIII of the 20th dynasty
@@ -28,4 +45,30 @@ https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
 
 - In regards to the dynasties, if it is a -1, it still occured within the 18-20th dynasties. 
 
-- Oh and in regards to **Interior Layout**, I would group `corridors and chambers` with `corridors and chamber` 
+- In regards to **Interior Layout**, I would group `corridors and chambers` with `corridors and chamber` 
+
+## Notes on the ABM itself 4-29-2025
+1. Rules
+    - Elevation preference: 150 to 200 m (+/- 10-15 meters of our max and min in the dataset)
+    - Don't overlap with the existing tombs 
+    - West Bank only
+    - More rules to be added based on cultural burial practices AFTER a basic model is running
+2. Environment
+    - 2D continuous grid
+        - X-axis: position (meters across the Valley)
+        - Y-axis: position (meters across the Valley)
+        - Each point (x, y) can have:
+            - Elevation
+            - Bank side (East or West)
+        - The Valley of the Kings is >1000 feet (300 m) so we'll set the dimensions to **1600 m (X) x 1100 m (Y)** (added 100 m to either side for buffer)
+        [Using this map for reference](https://thebanmappingproject.com/sites/default/files/plans/Valley%20of%20the%20Kings.pdf)
+    - Elevation Map: a basic elevation field.
+        - Higher toward the cliffs, lower toward valley center.
+    - West Bank boundary
+        - Designate an X or Y line that separates West vs East.
+    - Existing tombs
+        - Seed the space with real tombs already placed, to check for/avoid overlaps.
+3. Stepping
+    - One tomb per step. Tombs were commissioned for death. A once in a lifetime event (literally). Unlikely that several tombs were being built at once. I could be wrong about this though, so we might need to change this based on research.
+
+
