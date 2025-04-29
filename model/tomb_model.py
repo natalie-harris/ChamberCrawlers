@@ -1,50 +1,47 @@
-# tomb_model.py
-import sys
-import geopandas as gpd
-import pandas as pd
+from mesa import Model
+from mesa.time import RandomActivation
+from tomb_builder import TombBuilder  # We assume this is in tomb_builder.py
+import rasterio
 import numpy as np
-from mesa import Agent, Model
-from shapely.geometry import Point
-
-# Load tomb data
-df = pd.read_csv("All Theban Tombs.csv")
-df = df.rename(columns={"x": "Latitude", "y": "Longitude"})
-# Do not include data that lacks latitude and longitude in training
-df = df.dropna(subset=["Latitude", "Longitude"]) 
-
-# Convert to GeoDataFrame
-gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.y, df.x))
-# EPSG:4326 represents the WGS 84 geographic coordinate system (latitude/longitude)
-gdf.set_crs(epsg=4326, inplace=True) 
-# Convert to Web Mercator (EPSG:3857) for better visualization and calculations (it's in meters!)
-gdf = gdf.to_crs(epsg=3857)  
-
-# Get bounds - these are the limits for the random predictions
-minx, miny, maxx, maxy = gdf.total_bounds
-
-class TombSeekerAgent(Agent):
-    def __init__(self, unique_id, model):
-        super().__init__(unique_id, model)
-        self.predicted_location = None
-
-    def step(self):
-        # Simple random prediction within bounds
-        x = self.random.uniform(self.model.minx, self.model.maxx)
-        y = self.random.uniform(self.model.miny, self.model.maxy)
-        self.predicted_location = Point(x, y)
 
 class TombModel(Model):
-    def __init__(self, n_agents=10):
-        self.agents = []
-        self.minx, self.miny, self.maxx, self.maxy = minx, miny, maxx, maxy
+    def __init__(self, num_agents, tif_file):
+        super().__init__()
+        self.num_agents = num_agents
+        self.schedule = RandomActivation(self)
+        self.tombs = []  # Stores all placed tombs
 
-        for i in range(n_agents):
-            agent = TombSeekerAgent(i, self)
-            self.agents.append(agent)
+        # Load elevation data
+        self.raster = rasterio.open(tif_file)
+        self.elevation_array = self.raster.read(1)
+        self.transform = self.raster.transform
 
-        self.predictions = []
+        # Define valley boundaries (restrict agent movement)
+        # self.lon_min = self.raster.bounds.left
+        # self.lon_max = self.raster.bounds.right
+        # self.lat_min = self.raster.bounds.bottom
+        # self.lat_max = self.raster.bounds.top
+
+        # Use manually set Valley of the Kings bounds
+        self.lon_min = 32.590
+        self.lon_max = 32.620
+        self.lat_min = 25.735
+        self.lat_max = 25.755
+
+        # Spawn agents
+        for i in range(self.num_agents):
+            # Start agents at random positions in the valley
+            start_lon = self.random.uniform(self.lon_min, self.lon_max)
+            start_lat = self.random.uniform(self.lat_min, self.lat_max)
+            agent = TombBuilder(i, self, start_lon, start_lat)
+            self.schedule.add(agent)
 
     def step(self):
-        for agent in self.agents:
-            agent.step()
-        self.predictions = [a.predicted_location for a in self.agents]
+        self.schedule.step()
+
+    def get_elevation(self, lon, lat):
+        try:
+            row, col = self.raster.index(lon, lat)
+            return self.elevation_array[row, col]
+        except IndexError:
+            return None  # Out of bounds

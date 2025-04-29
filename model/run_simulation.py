@@ -2,7 +2,7 @@ from tomb_model import TombModel
 import matplotlib.pyplot as plt
 
 # 📥 Load your real DEM GeoTIFF
-TIF_FILE = "../dat/n25_e032_1arc_v3.tif"
+TIF_FILE = "../data/n25_e032_1arc_v3.tif"
 
 # Set number of 'tomb builders' and simulation steps
 NUM_AGENTS = 20
