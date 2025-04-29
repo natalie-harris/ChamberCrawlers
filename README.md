@@ -50,9 +50,10 @@ https://github.com/SantaFeInstitute/ABMA/tree/master/ch7
 ## Notes on the ABM itself 4-29-2025
 1. Rules
     - Elevation preference: 150 to 200 m (+/- 10-15 meters of our max and min in the dataset)
-    - Don't overlap with the existing tombs 
+    - Don't overlap with the existing tombs (~200 m; 25 m less than the median distance between tombs).
     - West Bank only
     - More rules to be added based on cultural burial practices AFTER a basic model is running
+        - Model different spacing by tomb type later (royal vs official vs animal)
 2. Environment
     - 2D continuous grid
         - X-axis: position (meters across the Valley)
