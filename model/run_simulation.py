@@ -1,7 +1,7 @@
 from tomb_model import TombModel
 import matplotlib.pyplot as plt
 
-# 📥 Load your real DEM GeoTIFF
+# Load your DEM GeoTIFF
 TIF_FILE = "../data/n25_e032_1arc_v3.tif"
 
 # Set number of 'tomb builders' and simulation steps

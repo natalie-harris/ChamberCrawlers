@@ -1,6 +1,6 @@
 from mesa import Model
 from mesa.time import RandomActivation
-from tomb_builder import TombBuilder  # We assume this is in tomb_builder.py
+from tomb_builder import TombBuilder  # tomb_builder.py
 import rasterio
 import numpy as np
 
