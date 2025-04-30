@@ -4,6 +4,11 @@ from mesa import Agent
 import random
 import math
 
+from mesa import Agent
+print("Agent class:", Agent)
+print("Base classes:", Agent.__bases__)
+
+
 # --- Target distribution based on real data ---
 TARGET_DISTRIBUTION = {
     "0_25": 0.0186,
