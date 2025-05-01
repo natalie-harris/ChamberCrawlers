@@ -187,19 +187,19 @@ class TerrainModel(Model):
                 if grid_row is not None and grid_col is not None:
                     self.tomb_locations.add((grid_row, grid_col))
 
-            for i in range(num_agents):
-                # Ensure agents start within the grid bounds
-                start_x = self.random.randrange(self.width)
-                start_y = self.random.randrange(self.height)
-                agent = WalkerAgent(f"walker_{i}", self, (start_x, start_y))
-                self.schedule.add(agent)
-                self.grid.place_agent(agent, (start_x, start_y))
+        for i in range(num_agents):
+            # Ensure agents start within the grid bounds
+            start_x = self.random.randrange(self.width)
+            start_y = self.random.randrange(self.height)
+            agent = WalkerAgent(f"walker_{i}", self, (start_x, start_y))
+            self.schedule.add(agent)
+            self.grid.place_agent(agent, (start_x, start_y))
 
-            self.running = True
+        self.running = True
 
-        def step(self):
-            self.schedule.step()
-            self.steps += 1
+    def step(self):
+        self.schedule.step()
+        self.steps += 1
 
 def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, cell_size=30):
     """Generates a single frame of the simulation as a heatmap with tomb locations."""
@@ -222,8 +222,8 @@ def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, 
 
     # Correct orientation: flip the y-axis and the elevation data
     extent = [0, grid_width * cell_size, 0, grid_height * cell_size]
-    im = plt.imshow(np.flipud(elevation_data), cmap='viridis', origin='lower', extent=extent)
-    cbar = plt.colorbar(im, label='Elevation (m)', shrink=0.8, location='bottom')
+    plt.imshow(np.flipud(model.elevation), cmap='viridis', origin='lower', extent=extent)
+    plt.colorbar(label='Normalized Elevation', shrink=0.7)
 
     # Highlight tomb locations
     tomb_rows, tomb_cols = zip(*model.tomb_locations) if model.tomb_locations else ([], [])
@@ -234,7 +234,7 @@ def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, 
     # Plot agent positions (adjust y-coordinate for flipped axis)
     agent_x = [pos[0] * cell_size + cell_size / 2 for pos in agent_positions.values()]
     agent_y = [(grid_height - 1 - pos[1]) * cell_size + cell_size / 2 for pos in agent_positions.values()]
-    plt.scatter(agent_x, agent_y, color='red', s=50, label='Agents')
+    plt.scatter(agent_x, agent_y, color='red', s=50, edgecolors='black', linewidths=0.5, label='Agents')
 
     # Set ticks based on meters from the bottom left
     x_ticks = np.arange(0, grid_width * cell_size, cell_size * 5)  # Every 5 cells (150 m)
@@ -296,7 +296,6 @@ if __name__ == "__main__":
         print(f"Running ffmpeg command: {' '.join(ffmpeg_cmd)}")
         subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
         print(f"Simulation video saved to {output_video_file}")
-
         # Clean up the frames directory (optional)
         # import shutil
         # shutil.rmtree(OUTPUT_FRAMES_DIR)
