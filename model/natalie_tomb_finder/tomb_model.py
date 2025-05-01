@@ -34,6 +34,19 @@ KV1_EASTING = 94006.256
 rotation_degrees = 27 + (2/60) + (23/3600)
 rotation_radians = math.radians(rotation_degrees)
 
+# Target distribution of tomb distances
+DIST_TARGET_DISTRIBUTION = {
+    "0_25": 0.0186,
+    "25_75": 0.0904,
+    "75_150": 0.1977,
+    "150_250": 0.2580,
+    "250_400": 0.2048,
+    "400_600": 0.0895,
+    "600_800": 0.0399,
+    "800_1000": 0.0736,
+    "1000_1200": 0.0275
+}
+
 def load_elevation_data(file_path):
     """Loads elevation data from a JSON file into a NumPy array."""
     try:
@@ -126,6 +139,74 @@ class WalkerAgent(Agent):
 
             self.steps_taken += 1
 
+# Check if placement fits DISTANCE distribution
+def fits_distribution(tombs):
+    # Categorize all pairwise distances
+    bins = {
+        "0_25": 0,
+        "25_75": 0,
+        "75_150": 0,
+        "150_250": 0,
+        "250_400": 0,
+        "400_600": 0,
+        "600_800": 0,
+        "800_1000": 0,
+        "1000_1200": 0
+    }
+    total_pairs = 0
+
+    for i in range(len(tombs)):
+        for j in range(i+1, len(tombs)):
+            d = haversine(tombs[i]["lon"], tombs[i]["lat"], tombs[j]["lon"], tombs[j]["lat"])
+            total_pairs += 1
+
+            if d < 25:
+                bins["0_25"] += 1
+            elif d < 75:
+                bins["25_75"] += 1
+            elif d < 150:
+                bins["75_150"] += 1
+            elif d < 250:
+                bins["150_250"] += 1
+            elif d < 400:
+                bins["250_400"] += 1
+            elif d < 600:
+                bins["400_600"] += 1
+            elif d < 800:
+                bins["600_800"] += 1
+            elif d < 1000:
+                bins["800_1000"] += 1
+            elif d < 1200:
+                bins["1000_1200"] += 1
+
+    # Compare ratios to target
+    if total_pairs == 0:
+        return True  # No pairs yet, allow first tombs
+
+    for key in bins:
+        actual_ratio = bins[key] / total_pairs
+        target_ratio = DIST_TARGET_DISTRIBUTION[key]
+
+        # Allow some tolerance (+5%)
+        if actual_ratio > (target_ratio + 0.05):
+            return False
+
+    return True
+
+# Haversine Distance
+def haversine(lon1, lat1, lon2, lat2):
+    R = 6371000  # radius of Earth in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = (math.sin(delta_phi/2)**2 +
+         math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda/2)**2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return R * c
+
 """
 MODEL
 """
@@ -200,6 +281,24 @@ class TerrainModel(Model):
     def step(self):
         self.schedule.step()
         self.steps += 1
+        self.check_for_agent_overlap()
+    
+    # Checks the grid for cells with more than one agent and prints a report.
+    def check_for_agent_overlap(self):
+        overlapping_cells = {}
+        for x in range(self.grid.width):
+            for y in range(self.grid.height):
+                cell_contents = self.grid.get_cell_list_contents((x, y))
+                if len(cell_contents) > 1:
+                    overlapping_cells[(x, y)] = [agent.unique_id for agent in cell_contents]
+
+        if overlapping_cells:
+            print(f"Step {self.steps}: Agent overlap detected in the following cells:")
+            for coord, agent_ids in overlapping_cells.items():
+                print(f"  Cell {coord}: Agents {agent_ids}")
+        # else:
+        #     print(f"Step {self.steps}: No agent overlap detected.") # Uncomment if you want a message at each step
+
 
 def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, cell_size=30):
     """Generates a single frame of the simulation as a heatmap with tomb locations."""
