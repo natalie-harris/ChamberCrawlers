@@ -4,11 +4,6 @@ from mesa import Agent
 import random
 import math
 
-from mesa import Agent
-print("Agent class:", Agent)
-print("Base classes:", Agent.__bases__)
-
-
 # --- Target distribution based on real data ---
 TARGET_DISTRIBUTION = {
     "0_25": 0.0186,
@@ -24,13 +19,19 @@ TARGET_DISTRIBUTION = {
 
 class TombBuilder(Agent):
     def __init__(self, unique_id, model, start_lon, start_lat):
-        super().__init__(unique_id, model)
+        self.unique_id = unique_id
+        self.model = model
         self.lon = start_lon
         self.lat = start_lat
         self.has_built = False
+        # SUCCESS: print(f"🧱 Initialized agent {self.unique_id}")
 
     def step(self):
+        print(f"Agent {self.unique_id} is stepping...")
+
+        # Check if agent has already built a tomb
         if self.has_built:
+            print(f"Agent {self.unique_id} has already built a tomb.")
             return
 
         # Random small movement
@@ -45,9 +46,11 @@ class TombBuilder(Agent):
             elevation = self.model.get_elevation(new_lon, new_lat)
 
             if elevation is None:
+                print(f"Agent {self.unique_id} out of bounds or no data at ({new_lon:.5f}, {new_lat:.5f})")
                 return
 
-            if 160 <= elevation <= 200:
+            print(f"🔍 Agent {self.unique_id} trying ({new_lon:.5f}, {new_lat:.5f}) elev={elevation}")
+            if 150 <= elevation <= 200:
 
                 # Hypothetical tomb list
                 hypothetical_tombs = self.model.tombs + [{
@@ -66,7 +69,7 @@ class TombBuilder(Agent):
                         "builder_id": self.unique_id
                     })
                     self.has_built = True
-                    print(f"✅ Agent {self.unique_id} built tomb at ({new_lon:.5f}, {new_lat:.5f}) elev={elevation:.2f}m")
+                    print(f"Agent {self.unique_id} built tomb at ({new_lon:.5f}, {new_lat:.5f}) elev={elevation:.2f}m")
 
             self.lon = new_lon
             self.lat = new_lat

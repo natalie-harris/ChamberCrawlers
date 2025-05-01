@@ -16,12 +16,6 @@ class TombModel(Model):
         self.elevation_array = self.raster.read(1)
         self.transform = self.raster.transform
 
-        # Define valley boundaries (restrict agent movement)
-        # self.lon_min = self.raster.bounds.left
-        # self.lon_max = self.raster.bounds.right
-        # self.lat_min = self.raster.bounds.bottom
-        # self.lat_max = self.raster.bounds.top
-
         # Use manually set Valley of the Kings bounds
         self.lon_min = 32.590
         self.lon_max = 32.620

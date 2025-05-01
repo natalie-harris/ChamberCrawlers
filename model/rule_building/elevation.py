@@ -18,7 +18,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Load tomb data
-csv_path = "../../data/tombs_data.csv"  # <- Adjust path as needed
+csv_path = "../../data/tombs_data.csv" 
 df = pd.read_csv(csv_path)
 
 # Clean elevation column

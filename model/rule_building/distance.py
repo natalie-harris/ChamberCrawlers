@@ -7,6 +7,17 @@
 # Median distance between tombs: 225.74 meters
 # Maximum distance between tombs: 1173.68 meters
 
+# Perecentage of tombs with x meters of each other
+    # "0_25": 0.0186,
+    # "25_75": 0.0904,
+    # "75_150": 0.1977,
+    # "150_250": 0.2580,
+    # "250_400": 0.2048,
+    # "400_600": 0.0895,
+    # "600_800": 0.0399,
+    # "800_1000": 0.0736,
+    # "1000_1200": 0.0275
+
 import pandas as pd
 import numpy as np
 import math

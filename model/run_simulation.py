@@ -12,6 +12,8 @@ def main():
     # Create model
     model = TombModel(num_agents=NUM_AGENTS, tif_file=TIF_FILE)
 
+    print(f"🧠 Scheduled agents: {len(model.schedule.agents)}")
+    
     # Run steps
     for i in range(NUM_STEPS):
         print(f"Step {i+1}/{NUM_STEPS}")

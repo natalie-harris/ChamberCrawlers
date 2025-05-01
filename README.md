@@ -19,8 +19,9 @@ an ABM lets us simulate:
 This matches how tombs were actually planned historically.
 
 # Lost Pharaoh Tombs
-- Thutmese II of the 18th dynasty (found in 2022 in the Valley of the Queens)
-- Ramses VIII of the 20th dynasty
+- Thutmose II of the 18th dynasty (found in 2022 in the Valley of the Queens)
+- Ramses VIII of the 20th dynasty (still lost)
+
 
 
 ## GeoPandas
