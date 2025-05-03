@@ -118,30 +118,52 @@ class WalkerAgent(Agent):
         self.steps_taken = 0
         self.max_steps = 50
 
+    def _get_elevation_preference_weight(self, elevation):
+        """Assigns a weight based on the provided elevation distribution."""
+        if elevation < 160:
+            return 0.00
+        elif 160 <= elevation < 165:
+            return 0.00
+        elif 165 <= elevation < 170:
+            return 12.24
+        elif 170 <= elevation < 175:
+            return 16.33
+        elif 175 <= elevation < 180:
+            return 22.45
+        elif 180 <= elevation < 190:
+            return 26.53
+        elif 190 <= elevation < 200:
+            return 16.33
+        elif 200 <= elevation < 220:
+            return 4.08
+        elif 220 <= elevation < 240:
+            return 0.00
+        elif 240 <= elevation < 260:
+            return 2.04
+        elif 260 <= elevation < 300:
+            return 0.00
+        else:
+            return 0.00  # Default for elevations outside the given range
+
     def step(self):
         if self.steps_taken < self.max_steps:
             x, y = self.pos
-            current_elevation = self.model.elevation[y, x]
             neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=False)
-
             possible_moves = []
             weights = []
 
             for nx, ny in neighbors:
                 if 0 <= ny < self.model.grid.height and 0 <= nx < self.model.grid.width:
                     neighbor_elevation = self.model.elevation[ny, nx]
-                    if neighbor_elevation > current_elevation:
-                        possible_moves.append((nx, ny))
-                        # Assign a score based on elevation
-                        if 175 <= neighbor_elevation <= 190:
-                            weights.append(2)
-                        elif 165 <= neighbor_elevation < 175 or 190 < neighbor_elevation <= 200:
-                            weights.append(1)
-                        else:
-                            weights.append(0.5)
+                    weight = self._get_elevation_preference_weight(neighbor_elevation)
+                    possible_moves.append((nx, ny))
+                    weights.append(weight)
 
-            if possible_moves:
-                new_location = self.random.choices(possible_moves, weights=weights, k=1)[0]
+            # Normalize weights to create a probability distribution
+            total_weight = sum(weights)
+            if total_weight > 0:
+                probabilities = [w / total_weight for w in weights]
+                new_location = self.random.choices(possible_moves, weights=probabilities, k=1)[0]
                 self.model.grid.move_agent(self, new_location)
 
             self.steps_taken += 1
