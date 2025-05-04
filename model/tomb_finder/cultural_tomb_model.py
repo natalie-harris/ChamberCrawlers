@@ -15,7 +15,7 @@ import random
 # Path to the elevation data JSON file
 ELEVATION_DATA_PATH = "../../data/data_acquisition/elevation/KVElevation.json"
 TOMB_DATA_PATH = "../../data/tombs_data.csv"
-OUTPUT_DIR = "output"
+OUTPUT_DIR = "cultural_output"
 OUTPUT_FRAMES_DIR = os.path.join(OUTPUT_DIR, "simulation_frames")
 FRAMES_PER_SECOND = 5
 TOTAL_STEPS = 100  # Number of simulation steps to run
