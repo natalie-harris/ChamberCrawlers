@@ -10,6 +10,10 @@ from datetime import datetime
 import subprocess  # To run ffmpeg
 from pyproj import Transformer  # For coordinate transformations
 import math
+import sys
+import argparse
+import time
+
 import random
 
 # Path to the elevation data JSON file
@@ -122,44 +126,78 @@ def latlon_to_grid_coords(latitude, longitude, min_lat, max_lat, min_lon, max_lo
 AGENT
 """
 class WalkerAgent(Agent):
-    def __init__(self, unique_id, model, start_location):
+    def __init__(self, unique_id, model, start_location, weights):
         super().__init__(model)
         self.pos = start_location
         self.steps_taken = 0
-        self.max_steps = 50
+        self.max_steps = TOTAL_STEPS
+        self.weights = weights
+        self.unique_id = unique_id
 
-    def _get_elevation_preference_weight(self, elevation):
+    def _get_elevation_preference(self, elevation):
         """Assigns a weight based on the provided elevation distribution."""
-        if 165 <= elevation < 170:
-            return 12.24
+        if elevation < 160:
+            return 0.00
+        elif 160 <= elevation < 165:
+            return 0.00
+        elif 165 <= elevation < 170:
+            return 0.1224
         elif 170 <= elevation < 175:
-            return 16.33
+            return 0.1633
         elif 175 <= elevation < 180:
-            return 22.45
+            return 0.2245
         elif 180 <= elevation < 190:
-            return 26.53
+            return 0.2653
         elif 190 <= elevation < 200:
-            return 16.33
+            return 0.1633
         elif 200 <= elevation < 220:
-            return 4.08
+            return 0.408
         elif 220 <= elevation < 240:
             return 0.00
         elif 240 <= elevation < 260:
-            return 2.04
+            return 0.204
+        elif 260 <= elevation < 300:
+            return 0.00
         else:
             return 0.00  # Default for elevations outside the given range
+
+    def _get_tomb_distance_preference(self, x, y):
+        return 0
+    
+    def _get_agent_distance_preference(self, x, y):
+        return 0
+
+    def _get_tile_preference(self, x, y):
+        total_preference = 0
+
+        # elevation preference
+        tile_elevation = self.model_elevation[y, x]
+        elevation_preference = self._get_elevation_preference(tile_elevation) * self.weights['elevation']
+        total_preference += elevation_preference
+
+        # NOT IMPLEMENTED YET
+        # tomb distance preference
+        tomb_distance_preference = self._get_tomb_distance_preference(x, y) * self.weights['tomb_distance']
+        total_preference += tomb_distance_preference
+
+        # NOT IMPLEMENTED YET
+        # agent distance preference
+        agent_distance_preference = self._get_agent_distance_preference(x, y) * self.weights['agent_distance']
+        total_preference += agent_distance_preference
+        
+        return total_preference
 
     def step(self):
         if self.steps_taken < self.max_steps:
             x, y = self.pos
-            neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=False)
+            neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=True)
             possible_moves = []
             weights = []
 
             for nx, ny in neighbors:
                 if 0 <= ny < self.model.grid.height and 0 <= nx < self.model.grid.width:
                     neighbor_elevation = self.model.elevation[ny, nx]
-                    weight = self._get_elevation_preference_weight(neighbor_elevation)
+                    weight = self._get_elevation_preference(neighbor_elevation)
                     possible_moves.append((nx, ny))
                     weights.append(weight)
 
@@ -172,8 +210,8 @@ class WalkerAgent(Agent):
 
             self.steps_taken += 1
 
-# Check if placement fits DISTANCE distribution
-def fits_distribution(tombs):
+def create_distance_distribution(tombs):
+
     # Categorize all pairwise distances
     bins = {
         "0_25": 0,
@@ -211,6 +249,13 @@ def fits_distribution(tombs):
                 bins["800_1000"] += 1
             elif d < 1200:
                 bins["1000_1200"] += 1
+
+    return bins, total_pairs
+
+# Check if placement fits DISTANCE distribution
+def fits_distribution(tombs):
+    # Categorize all pairwise distances
+    bins, total_pairs = create_distance_distribution
 
     # Compare ratios to target
     if total_pairs == 0:
@@ -392,6 +437,16 @@ def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, 
     plt.close()
 
 if __name__ == "__main__":
+
+    # still need to implement these vars in the program, too tired rn tho
+    parser = argparse.ArgumentParser(description="Run a terrain analysis simulation.")
+    parser.add_argument('--num_agents', type=int, default=10, help='Number of agents in the simulation.')
+    parser.add_argument('--elevation_weight', type=float, default=0.5, help='Influence of elevation on agent movement.')
+    parser.add_argument('--tomb_distance_weight', type=float, default=0.5, help='Influence of distance to tombs.')
+    parser.add_argument('--agent_distance_weight', type=float, default=0.5, help='Influence of distance to other agents.')
+
+    args = parser.parse_args()  # Parse the arguments
+
     # Load elevation data to get grid dimensions
     elevation_data = load_elevation_data(ELEVATION_DATA_PATH)
     if elevation_data is not None:

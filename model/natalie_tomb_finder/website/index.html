@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain Analysis Simulation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .slider-container {
+            margin-bottom: 24px;
+        }
+        .slider-label {
+            display: block;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #f9fafb;
+            margin-bottom: 8px;
+        }
+        .slider-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #e5e7eb;
+            border-radius: 0.5rem;
+            height: 0.5rem;
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: white;
+            border-radius: 9999px;
+            cursor: pointer;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+        .slider::-moz-range-thumb {
+            width: 1.25rem;
+            height: 1.25rem;
+            background: white;
+            border-radius: 9999px;
+            cursor: pointer;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+        .slider::-webkit-slider-thumb:hover,
+        .slider::-moz-range-thumb:hover {
+            transform: scale(1.1);
+        }
+        .slider-value {
+            color: #d1d5db;
+            font-size: 0.875rem;
+            width: 3rem;
+            text-align: center;
+        }
+        #start-simulation {
+            background-image: linear-gradient(to right, #8b5cf6, #3b82f6);
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: none;
+            display: block;
+            margin: 0 auto;
+            font-size: 1.25rem;
+        }
+        #start-simulation:hover {
+            background-image: linear-gradient(to right, #a855f7, #2563eb);
+            transform: scale(1.05);
+            box-shadow: 0 6px 8px -2px rgba(0, 0, 0, 0.15), 0 3px 7px -3px rgba(0, 0, 0, 0.15);
+        }
+        #start-simulation:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            background-image: linear-gradient(to right, #8b5cf6, #3b82f6);
+            /* You can keep the gradient or change it to a solid color */
+        }
+        #video-output {
+            margin-top: 2rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        #error-message {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            color: #dc2626;
+            border-radius: 0.5rem;
+            text-align: center;
+            font-weight: 500;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 p-6">
+    <div class="max-w-4xl mx-auto space-y-8">
+        <h1 class="text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+            Terrain Analysis Simulation
+        </h1>
+
+        <div class="bg-gray-800/50 backdrop-blur-md rounded-xl p-6 border border-gray-700 shadow-lg">
+            <div class="space-y-6">
+                <div class="slider-container">
+                    <label for="num-agents" class="slider-label">Number of Agents</label>
+                    <div class="slider-wrapper">
+                        <span class="text-gray-400 text-sm">1</span>
+                        <input
+                            type="range"
+                            id="num-agents"
+                            min="1"
+                            max="10"
+                            value="10"
+                            class="slider"
+                        >
+                        <span id="num-agents-value" class="slider-value">10</span>
+                    </div>
+                    <p class="text-gray-300 text-sm mt-2">Set the number of agents for the simulation.</p>
+                </div>
+
+                <div class="slider-container">
+                    <label for="elevation-weight" class="slider-label">Elevation Weight</label>
+                    <div class="slider-wrapper">
+                        <span class="text-gray-400 text-sm">0.0</span>
+                        <input
+                            type="range"
+                            id="elevation-weight"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value="0.5"
+                            class="slider"
+                        >
+                        <span id="elevation-weight-value" class="slider-value">0.50</span>
+                    </div>
+                    <p class="text-gray-300 text-sm mt-2">Influence of elevation on agent movement.</p>
+                </div>
+
+                <div class="slider-container">
+                    <label for="tomb-distance-weight" class="slider-label">Tomb Distance Weight</label>
+                    <div class="slider-wrapper">
+                        <span class="text-gray-400 text-sm">0.0</span>
+                        <input
+                            type="range"
+                            id="tomb-distance-weight"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value="0.5"
+                            class="slider"
+                        >
+                        <span id="tomb-distance-weight-value" class="slider-value">0.50</span>
+                    </div>
+                    <p class="text-gray-300 text-sm mt-2">Influence of distance to tombs on agent movement.</p>
+                </div>
+
+                <div class="slider-container">
+                    <label for="agent-distance-weight" class="slider-label">Agent Distance Weight</label>
+                    <div class="slider-wrapper">
+                        <span class="text-gray-400 text-sm">0.0</span>
+                        <input
+                            type="range"
+                            id="agent-distance-weight"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value="0.5"
+                            class="slider"
+                        >
+                        <span id="agent-distance-weight-value" class="slider-value">0.50</span>
+                    </div>
+                    <p class="text-gray-300 text-sm mt-2">Influence of distance to other agents on movement.</p>
+                </div>
+            </div>
+        </div>
+
+        <button id="start-simulation" class="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-3 rounded-full
+                         hover:from-purple-600 hover:to-blue-600 hover:scale-105 transition-all duration-300
+                         shadow-lg hover:shadow-xl">
+            Start Simulation
+        </button>
+
+        <div id="error-message" class="hidden"></div>
+
+        <video id="video-output" controls class="hidden"></video>
+    </div>
+
+    <script>
+        const numAgentsSlider = document.getElementById('num-agents');
+        const elevationWeightSlider = document.getElementById('elevation-weight');
+        const tombDistanceWeightSlider = document.getElementById('tomb-distance-weight');
+        const agentDistanceWeightSlider = document.getElementById('agent-distance-weight');
+        const numAgentsValue = document.getElementById('num-agents-value');
+        const elevationWeightValue = document.getElementById('elevation-weight-value');
+        const tombDistanceWeightValue = document.getElementById('tomb-distance-weight-value');
+        const agentDistanceWeightValue = document.getElementById('agent-distance-weight-value');
+        const startSimulationButton = document.getElementById('start-simulation');
+        const videoOutput = document.getElementById('video-output');
+        const errorMessage = document.getElementById('error-message');
+
+        numAgentsSlider.addEventListener('input', (event) => {
+            numAgentsValue.textContent = event.target.value;
+        });
+
+        elevationWeightSlider.addEventListener('input', (event) => {
+            elevationWeightValue.textContent = parseFloat(event.target.value).toFixed(2);
+        });
+
+        tombDistanceWeightSlider.addEventListener('input', (event) => {
+            tombDistanceWeightValue.textContent = parseFloat(event.target.value).toFixed(2);
+        });
+
+        agentDistanceWeightSlider.addEventListener('input', (event) => {
+            agentDistanceWeightValue.textContent = parseFloat(event.target.value).toFixed(2);
+        });
+
+        startSimulationButton.addEventListener('click', () => {
+            startSimulationButton.disabled = true;
+            startSimulationButton.textContent = 'Running Simulation...';
+            videoOutput.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+
+            // 1.  Create FormData object
+            const formData = new FormData();
+            formData.append('num_agents', numAgentsSlider.value);
+            formData.append('elevation_weight', elevationWeightSlider.value);
+            formData.append('tomb_distance_weight', tombDistanceWeightSlider.value);
+            formData.append('agent_distance_weight', agentDistanceWeightSlider.value);
+
+            // 2. Use fetch to send a POST request to the server
+            fetch('http://localhost:8000/simulate', {  //  Use the correct server URL (http://localhost:8000/simulate)
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { // Get the error message
+                        throw new Error(`HTTP error! Status: ${response.status}, Body: ${text}`);
+                    });
+                }
+                return response.json(); // Expect JSON data
+            })
+            .then(data => {
+                console.log('Received data:', data); // Log the data
+                if (data.error) {
+                    throw new Error(data.error); // Throw error if the server sends an error
+                }
+                const videoPath = data.video_path;
+                if (!videoPath)
+                {
+                    throw new Error("Video path was not sent by the server");
+                }
+                startSimulationButton.disabled = false;
+                startSimulationButton.textContent = 'Start Simulation';
+                videoOutput.src = videoPath;
+                videoOutput.classList.remove('hidden');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorMessage.textContent = 'Simulation failed: ' + error.message;
+                errorMessage.classList.remove('hidden');
+                startSimulationButton.disabled = false;
+                startSimulationButton.textContent = 'Start Simulation';
+            });
+        });
+    </script>
+</body>
+</html>
