@@ -24,6 +24,7 @@
             display: flex;
             align-items: center;
             gap: 16px;
+            width: 100%;
         }
         .slider {
             flex: 1;
@@ -33,6 +34,7 @@
             border-radius: 0.5rem;
             height: 0.5rem;
             outline: none;
+            width: 100%;
         }
         .slider::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -86,7 +88,6 @@
             opacity: 0.7;
             cursor: not-allowed;
             background-image: linear-gradient(to right, #8b5cf6, #3b82f6);
-            /* You can keep the gradient or change it to a solid color */
         }
         #video-output {
             margin-top: 2rem;
@@ -119,7 +120,6 @@
         <h1 class="text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
             Terrain Analysis Simulation
         </h1>
-
         <div class="bg-gray-800/50 backdrop-blur-md rounded-xl p-6 border border-gray-700 shadow-lg">
             <div class="space-y-6">
                 <div class="slider-container">
@@ -138,7 +138,6 @@
                     </div>
                     <p class="text-gray-300 text-sm mt-2">Set the number of agents for the simulation.</p>
                 </div>
-
                 <div class="slider-container">
                     <label for="elevation-weight" class="slider-label">Elevation Weight</label>
                     <div class="slider-wrapper">
@@ -156,7 +155,6 @@
                     </div>
                     <p class="text-gray-300 text-sm mt-2">Influence of elevation on agent movement.</p>
                 </div>
-
                 <div class="slider-container">
                     <label for="tomb-distance-weight" class="slider-label">Tomb Distance Weight</label>
                     <div class="slider-wrapper">
@@ -174,7 +172,6 @@
                     </div>
                     <p class="text-gray-300 text-sm mt-2">Influence of distance to tombs on agent movement.</p>
                 </div>
-
                 <div class="slider-container">
                     <label for="agent-distance-weight" class="slider-label">Agent Distance Weight</label>
                     <div class="slider-wrapper">
@@ -194,18 +191,14 @@
                 </div>
             </div>
         </div>
-
         <button id="start-simulation" class="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-3 rounded-full
                          hover:from-purple-600 hover:to-blue-600 hover:scale-105 transition-all duration-300
                          shadow-lg hover:shadow-xl">
             Start Simulation
         </button>
-
         <div id="error-message" class="hidden"></div>
-
         <video id="video-output" controls class="hidden"></video>
     </div>
-
     <script>
         const numAgentsSlider = document.getElementById('num-agents');
         const elevationWeightSlider = document.getElementById('elevation-weight');
@@ -222,58 +215,45 @@
         numAgentsSlider.addEventListener('input', (event) => {
             numAgentsValue.textContent = event.target.value;
         });
-
         elevationWeightSlider.addEventListener('input', (event) => {
             elevationWeightValue.textContent = parseFloat(event.target.value).toFixed(2);
         });
-
         tombDistanceWeightSlider.addEventListener('input', (event) => {
             tombDistanceWeightValue.textContent = parseFloat(event.target.value).toFixed(2);
         });
-
         agentDistanceWeightSlider.addEventListener('input', (event) => {
             agentDistanceWeightValue.textContent = parseFloat(event.target.value).toFixed(2);
         });
-
         startSimulationButton.addEventListener('click', () => {
             startSimulationButton.disabled = true;
             startSimulationButton.textContent = 'Running Simulation...';
             videoOutput.classList.add('hidden');
             errorMessage.classList.add('hidden');
-
-            // 1.  Create FormData object
             const formData = new FormData();
             formData.append('num_agents', numAgentsSlider.value);
             formData.append('elevation_weight', elevationWeightSlider.value);
             formData.append('tomb_distance_weight', tombDistanceWeightSlider.value);
             formData.append('agent_distance_weight', agentDistanceWeightSlider.value);
-
-            // 2. Use fetch to send a POST request to the server
-            fetch('http://localhost:8000/simulate', {  //  Use the correct server URL (http://localhost:8000/simulate)
+            fetch('http://localhost:8001/simulate', {
                 method: 'POST',
                 body: formData,
             })
             .then(response => {
                 if (!response.ok) {
-                    return response.text().then(text => { // Get the error message
+                    return response.text().then(text => {
                         throw new Error(`HTTP error! Status: ${response.status}, Body: ${text}`);
                     });
                 }
-                return response.json(); // Expect JSON data
+                //  Important:  The response should now be the video file itself.
+                return response.blob();
             })
-            .then(data => {
-                console.log('Received data:', data); // Log the data
-                if (data.error) {
-                    throw new Error(data.error); // Throw error if the server sends an error
-                }
-                const videoPath = data.video_path;
-                if (!videoPath)
-                {
-                    throw new Error("Video path was not sent by the server");
-                }
+            .then(blob => {
+                // Create a URL from the blob
+                const videoURL = URL.createObjectURL(blob);
+                console.log('Received video blob:', videoURL);
                 startSimulationButton.disabled = false;
                 startSimulationButton.textContent = 'Start Simulation';
-                videoOutput.src = videoPath;
+                videoOutput.src = videoURL;
                 videoOutput.classList.remove('hidden');
             })
             .catch(error => {

@@ -289,11 +289,17 @@ def haversine(lon1, lat1, lon2, lat2):
 MODEL
 """
 class TerrainModel(Model):
-    def __init__(self, width=None, height=None, num_agents=10, elevation_data_path=ELEVATION_DATA_PATH, tomb_data_path=TOMB_DATA_PATH):
+    def __init__(self, width=None, height=None, num_agents=10, elevation_weight=0.5, tomb_distance_weight=0.5, agent_distance_weight=0.5, elevation_data_path=ELEVATION_DATA_PATH, tomb_data_path=TOMB_DATA_PATH):
         super().__init__()
         self.elevation_data = load_elevation_data(elevation_data_path)
         self.tomb_df = load_tomb_data(tomb_data_path)
         self.tomb_locations = set() # Store grid coordinates of tombs
+
+        self.weights = {
+            "elevation_weight": elevation_weight,
+            "tomb_distance_weight": tomb_distance_weight,
+            "agent_distance_weight": agent_distance_weight
+        }
 
         if self.elevation_data is None:
             if width is None or height is None:
@@ -350,7 +356,7 @@ class TerrainModel(Model):
             # Ensure agents start within the grid bounds
             start_x = self.random.randrange(self.width)
             start_y = self.random.randrange(self.height)
-            agent = WalkerAgent(f"walker_{i}", self, (start_x, start_y))
+            agent = WalkerAgent(unique_id=f"walker_{i}", model=self, start_location=(start_x, start_y), weights=self.weights)
             self.schedule.add(agent)
             self.grid.place_agent(agent, (start_x, start_y))
 
@@ -444,16 +450,24 @@ if __name__ == "__main__":
     parser.add_argument('--elevation_weight', type=float, default=0.5, help='Influence of elevation on agent movement.')
     parser.add_argument('--tomb_distance_weight', type=float, default=0.5, help='Influence of distance to tombs.')
     parser.add_argument('--agent_distance_weight', type=float, default=0.5, help='Influence of distance to other agents.')
+    parser.add_argument('--output_dir', type=str, default=OUTPUT_DIR, help='Where the simulation recording ends up.')
 
     args = parser.parse_args()  # Parse the arguments
+
+    num_agents = args.num_agents
+    elevation_weight = args.elevation_weight
+    tomb_distance_weight = args.tomb_distance_weight
+    agent_distance_weight = args.agent_distance_weight
+    output_path = args.output_dir
 
     # Load elevation data to get grid dimensions
     elevation_data = load_elevation_data(ELEVATION_DATA_PATH)
     if elevation_data is not None:
         grid_height, grid_width = elevation_data.shape
-        model = TerrainModel(width=grid_width, height=grid_height)
+        model = TerrainModel(width=grid_width, height=grid_height, num_agents=num_agents, elevation_weight=elevation_weight, tomb_distance_weight=tomb_distance_weight, agent_distance_weight=agent_distance_weight)
     else:
-        model = TerrainModel() # Use default dimensions if no elevation data
+        print("Elevation data not found!")
+        exit()
 
     # Create output directory and frames directory
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -467,13 +481,13 @@ if __name__ == "__main__":
 
     # Create the video using ffmpeg
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_video_file = os.path.join(OUTPUT_DIR, f"simulation_{timestamp}.mp4")
+    output_video_file = os.path.join(output_path, f"simulation_{timestamp}.mp4")
     frame_pattern = os.path.join(OUTPUT_FRAMES_DIR, "step_%04d.png")
     ffmpeg_cmd = [
         'ffmpeg',
         '-framerate', str(FRAMES_PER_SECOND),
         '-i', frame_pattern,
-        '-c:v', 'mpeg4',  # Using mpeg4 for now, you might need libx264
+        '-c:v', 'libx264',  # Using mpeg4 for now, you might need libx264
         '-pix_fmt', 'yuv420p',
         '-y',  # Overwrite output file if it exists
         output_video_file
@@ -483,6 +497,7 @@ if __name__ == "__main__":
         print(f"Running ffmpeg command: {' '.join(ffmpeg_cmd)}")
         subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
         print(f"Simulation video saved to {output_video_file}")
+        print(f"Video path: {os.path.abspath(output_video_file)}")
         # Clean up the frames directory (optional)
         # import shutil
         # shutil.rmtree(OUTPUT_FRAMES_DIR)
