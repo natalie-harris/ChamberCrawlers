@@ -10,6 +10,7 @@ from datetime import datetime
 import subprocess  # To run ffmpeg
 from pyproj import Transformer  # For coordinate transformations
 import math
+import random
 
 # Path to the elevation data JSON file
 ELEVATION_DATA_PATH = "../../data/data_acquisition/elevation/KVElevation.json"
@@ -46,6 +47,15 @@ DIST_TARGET_DISTRIBUTION = {
     "800_1000": 0.0736,
     "1000_1200": 0.0275
 }
+
+def weighted_random_choice(weight_dict):
+    total = sum(weight_dict.values())
+    r = random.uniform(0, total)
+    upto = 0
+    for k, w in weight_dict.items():
+        if upto + w >= r:
+            return k
+        upto += w
 
 def load_elevation_data(file_path):
     """Loads elevation data from a JSON file into a NumPy array."""
@@ -120,11 +130,7 @@ class WalkerAgent(Agent):
 
     def _get_elevation_preference_weight(self, elevation):
         """Assigns a weight based on the provided elevation distribution."""
-        if elevation < 160:
-            return 0.00
-        elif 160 <= elevation < 165:
-            return 0.00
-        elif 165 <= elevation < 170:
+        if 165 <= elevation < 170:
             return 12.24
         elif 170 <= elevation < 175:
             return 16.33
@@ -140,8 +146,6 @@ class WalkerAgent(Agent):
             return 0.00
         elif 240 <= elevation < 260:
             return 2.04
-        elif 260 <= elevation < 300:
-            return 0.00
         else:
             return 0.00  # Default for elevations outside the given range
 
