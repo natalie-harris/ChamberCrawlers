@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from mesa import Agent, Model
-from mesa.space import MultiGrid
+from mesa.space import SingleGrid
 from mesa.time import RandomActivation
 import matplotlib.pyplot as plt
 import json
@@ -10,9 +10,7 @@ from datetime import datetime
 import subprocess  # To run ffmpeg
 from pyproj import Transformer  # For coordinate transformations
 import math
-import sys
 import argparse
-import time
 import random
 
 # Path to the elevation data JSON file
@@ -21,7 +19,7 @@ TOMB_DATA_PATH = "../../data/tombs_data.csv"
 OUTPUT_DIR = "output"
 OUTPUT_FRAMES_DIR = os.path.join(OUTPUT_DIR, "simulation_frames")
 FRAMES_PER_SECOND = 5
-TOTAL_STEPS = 100  # Number of simulation steps to run
+MAX_STEPS = 35  # Number of simulation steps to run
 CELL_SIZE = 30  # meters per cell
 MIN_LAT_ELEVATION = 25.73753
 MAX_LAT_ELEVATION = 25.74315
@@ -141,7 +139,7 @@ class WalkerAgent(Agent):
         super().__init__(model)
         self.pos = start_location
         self.steps_taken = 0
-        self.max_steps = TOTAL_STEPS
+        self.max_steps = MAX_STEPS
         self.weights = weights
         self.unique_id = unique_id
         self.deterministic = deterministic
@@ -173,50 +171,186 @@ class WalkerAgent(Agent):
         else:
             return 0.00  # Default for elevations outside the given range
 
+    def get_tomb_distance_bins(self, x, y):
+
+        distances = []
+        for tomb_x, tomb_y in self.model.tomb_locations:
+            # Convert tile distance to meters
+            distance = math.sqrt((x - tomb_x) ** 2 + (y - tomb_y) ** 2) * CELL_SIZE
+            distances.append(distance)
+
+        # Bin the distances (in meters)
+        bins = {
+            "0_25": 0,
+            "25_75": 0,
+            "75_150": 0,
+            "150_250": 0,
+            "250_400": 0,
+            "400_600": 0,
+            "600_800": 0,
+            "800_1000": 0,
+            "1000_1200": 0,
+        }
+        for distance in distances:
+            if distance < 25:
+                bins["0_25"] += 1
+            elif 25 <= distance < 75:
+                bins["25_75"] += 1
+            elif 75 <= distance < 150:
+                bins["75_150"] += 1
+            elif 150 <= distance < 250:
+                bins["150_250"] += 1
+            elif 250 <= distance < 400:
+                bins["250_400"] += 1
+            elif 400 <= distance < 600:
+                bins["400_600"] += 1
+            elif 600 <= distance < 800:
+                bins["600_800"] += 1
+            elif 800 <= distance < 1000:
+                bins["800_1000"] += 1
+            elif 1000 <= distance < 1200:
+                bins["1000_1200"] += 1
+
+        # Convert counts to percentages
+        total_tombs = len(distances)
+        for key in bins:
+            bins[key] /= total_tombs
+
+        return bins
+
+
     def _get_tomb_distance_preference(self, x, y):
         """
-        Calculates preference based on distance to the nearest tomb.
-        Prefers being close, but not too close, to tombs.
+        Calculates preference based on the percentage of surrounding tombs
+        within certain distance bounds (in meters).
+
+        Args:
+            x (int): x-coordinate of the cell.
+            y (int): y-coordinate of the cell.
+            tomb_locations (list): List of (tomb_x, tomb_y) tuples.
+
+        Returns:
+            float: A value between 0 and 1 representing the preference.
         """
-        min_distance = float('inf')
-        for tomb_x, tomb_y in self.model.tomb_locations:
-            distance = math.sqrt((x - tomb_x) ** 2 + (y - tomb_y) ** 2)
-            min_distance = min(min_distance, distance)
+        bins = self.get_tomb_distance_bins(x, y)
 
-        if min_distance < 2:  # Avoid being on or too close to a tomb
-            return 0.0
-        elif 2 <= min_distance < 5:
-            return 0.8
-        elif 5 <= min_distance < 10:
-            return 1.0
-        elif 10 <= min_distance < 20:
-            return 0.6
-        elif 20 <= min_distance < 30:
-            return 0.3
-        else:
-            return 0.1
+        # Ideal percentages (from your provided data)
+        ideal_bins = {
+            "0_25": 0.0186,
+            "25_75": 0.0904,
+            "75_150": 0.1977,
+            "150_250": 0.2580,
+            "250_400": 0.2048,
+            "400_600": 0.0895,
+            "600_800": 0.0399,
+            "800_1000": 0.0736,
+            "1000_1200": 0.0275,
+        }
 
+        # Calculate errors
+        errors = []
+        for key in bins:
+            errors.append(abs(bins[key] - ideal_bins[key]))
+
+        # Sum of errors
+        sum_of_errors = sum(errors)
+
+        # Softmax function (to convert sum of errors to a value between 0 and 1)
+        def softmax(x):
+            e_x = np.exp(x - np.max(x))  # Subtract max for numerical stability
+            return e_x / e_x.sum()
+
+        # Return 1 - softmax(sum(errors)) as the preference
+        preference = 1 - softmax(np.array([sum_of_errors]))[0] #convert to numpy array for softmax
+        return preference
+    
     def _get_agent_distance_preference(self, x, y):
         """
-        Calculates preference based on distance to other agents.
-        Prefers to be away from other agents.
+        Calculates preference based on the percentage of surrounding agents
+        within certain distance bounds (in meters).
+        Args:
+            x (int): x-coordinate of the cell.
+            y (int): y-coordinate of the cell.
+        Returns:
+            float: A value between 0 and 1 representing the preference.
         """
-        min_distance = float('inf')
+        distances = []
         for agent in self.model.schedule.agents:
             if agent != self:
-                distance = math.sqrt((x - agent.pos[0]) ** 2 + (y - agent.pos[1]) ** 2)
-                min_distance = min(min_distance, distance)
-        if min_distance < 2:
-            return 0.0
-        elif 2 <= min_distance < 5:
-            return 0.8
-        elif 5 <= min_distance < 10:
-            return 1.0
-        elif 10 <= min_distance < 20:
-            return 0.6
-        else:
-            return 0.1
+                # Convert tile distance to meters using the global CELL_SIZE
+                distance = math.sqrt((x - agent.pos[0]) ** 2 + (y - agent.pos[1]) ** 2) * CELL_SIZE
+                distances.append(distance)
 
+        # Bin the distances (in meters)
+        bins = {
+            "0_25": 0,
+            "25_75": 0,
+            "75_150": 0,
+            "150_250": 0,
+            "250_400": 0,
+            "400_600": 0,
+            "600_800": 0,
+            "800_1000": 0,
+            "1000_1200": 0,
+        }
+        for distance in distances:
+            if distance < 25:
+                bins["0_25"] += 1
+            elif 25 <= distance < 75:
+                bins["25_75"] += 1
+            elif 75 <= distance < 150:
+                bins["75_150"] += 1
+            elif 150 <= distance < 250:
+                bins["150_250"] += 1
+            elif 250 <= distance < 400:
+                bins["250_400"] += 1
+            elif 400 <= distance < 600:
+                bins["400_600"] += 1
+            elif 600 <= distance < 800:
+                bins["600_800"] += 1
+            elif 800 <= distance < 1000:
+                bins["800_1000"] += 1
+            elif 1000 <= distance < 1200:
+                bins["1000_1200"] += 1
+
+        # Convert counts to percentages
+        total_agents = len(distances)
+        if total_agents == 0:
+            return 0.5  # Return neutral preference if no other agents are around
+
+        for key in bins:
+            bins[key] /= total_agents
+
+        # Ideal percentages
+        ideal_bins = {
+            "0_25": 0.0186,
+            "25_75": 0.0904,
+            "75_150": 0.1977,
+            "150_250": 0.2580,
+            "250_400": 0.2048,
+            "400_600": 0.0895,
+            "600_800": 0.0399,
+            "800_1000": 0.0736,
+            "1000_1200": 0.0275,
+        }
+
+        # Calculate errors
+        errors = []
+        for key in bins:
+            errors.append(abs(bins[key] - ideal_bins[key]))
+
+        # Sum of errors
+        sum_of_errors = sum(errors)
+
+        # Softmax function
+        def softmax(x):
+            e_x = np.exp(x - np.max(x))
+            return e_x / e_x.sum()
+
+        # Return 1 - softmax(sum(errors)) as the preference
+        preference = 1 - softmax(np.array([sum_of_errors]))[0]
+        return preference
+    
     def _get_slope_preference(self, x, y):
         """
         Calculates the slope of the terrain at the given coordinates using gradient descent.
@@ -274,6 +408,19 @@ class WalkerAgent(Agent):
         tomb_distance_preference = self._get_tomb_distance_preference(x, y) * self.weights['tomb_distance_weight']
         total_preference += tomb_distance_preference
 
+        # Bin the distances (in meters)
+        bins = {
+            "0_25": 0,
+            "25_75": 0,
+            "75_150": 0,
+            "150_250": 0,
+            "250_400": 0,
+            "400_600": 0,
+            "600_800": 0,
+            "800_1000": 0,
+            "1000_1200": 0,
+        }
+
         # agent distance preference
         agent_distance_preference = self._get_agent_distance_preference(x, y) * self.weights['agent_distance_weight']
         total_preference += agent_distance_preference
@@ -287,11 +434,16 @@ class WalkerAgent(Agent):
     def step(self):
         if self.steps_taken < self.max_steps:
             x, y = self.pos
-            neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=False)
+            neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=True)
             possible_moves = []
             weights = []
 
             for nx, ny in neighbors:
+
+                # print(nx, ny)
+                if (nx != x or ny != y) and not self.model.grid.is_cell_empty((nx,ny)):
+                    continue
+
                 if 0 <= ny < self.model.grid.height and 0 <= nx < self.model.grid.width:
                     neighbor_preference = self._get_tile_preference(nx, ny)
                     possible_moves.append((nx, ny))
@@ -302,6 +454,7 @@ class WalkerAgent(Agent):
                     if weights:
                         max_weight_index = weights.index(max(weights))
                         new_location = possible_moves[max_weight_index]
+                        self.model.grid.remove_agent(self)
                         self.model.grid.move_agent(self, new_location)
                 else:
                     # Probabilistic model: Normalize weights to create a probability distribution
@@ -309,10 +462,10 @@ class WalkerAgent(Agent):
                     if total_weight > 0:
                         probabilities = [w / total_weight for w in weights]
                         new_location = self.random.choices(possible_moves, weights=probabilities, k=1)[0]
+                        self.model.grid.remove_agent(self)
                         self.model.grid.move_agent(self, new_location)
 
             self.steps_taken += 1
-
 
 def create_distance_distribution(tombs):
     # Categorize all pairwise distances
@@ -355,7 +508,6 @@ def create_distance_distribution(tombs):
 
     return bins, total_pairs
 
-
 # Check if placement fits DISTANCE distribution
 def fits_distribution(tombs):
     # Categorize all pairwise distances
@@ -374,7 +526,6 @@ def fits_distribution(tombs):
             return False
 
     return True
-
 
 # Haversine Distance
 def haversine(lon1, lat1, lon2, lat2):
@@ -430,7 +581,7 @@ class TerrainModel(Model):
                 print(
                     "Warning: Provided width and height do not match the dimensions of the loaded elevation data.")
 
-        self.grid = MultiGrid(self.width, self.height, torus=False)
+        self.grid = SingleGrid(self.width, self.height, torus=False)
         self.schedule = RandomActivation(self)
         self.steps = 0
 
@@ -468,7 +619,7 @@ class TerrainModel(Model):
 
         for i in range(num_agents):
             # Use the constant starting location
-            start_x, start_y = AGENT_START_LOCATION
+            start_x, start_y = (AGENT_START_LOCATION[0] + i%2, AGENT_START_LOCATION[1] + i//2)
             # Ensure agents start within the grid bounds
             start_x = max(0, min(start_x, self.width - 1))
             start_y = max(0, min(start_y, self.height - 1))
@@ -476,6 +627,7 @@ class TerrainModel(Model):
             agent = WalkerAgent(unique_id=f"walker_{i}", model=self, start_location=(start_x, start_y),
                                 weights=self.weights)
             self.schedule.add(agent)
+            # self.grid.remove_agent(agent)
             self.grid.place_agent(agent, (start_x, start_y))
 
         self.running = True
@@ -558,7 +710,7 @@ def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, 
     plt.tight_layout(rect=[0, 0, 0.95, 1]) # Adjust layout to make space for the legend
 
     os.makedirs(output_dir, exist_ok=True)
-    filename = os.path.join(output_dir, f"step_{step:04d}.png")
+    filename = os.path.join(output_dir, f"step_{step:03d}.png")
     plt.savefig(filename)
     plt.close()
 
@@ -595,16 +747,111 @@ if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(OUTPUT_FRAMES_DIR, exist_ok=True)
 
-    # Run the simulation and generate frames
-    for step in range(TOTAL_STEPS):
+   # Run the simulation and generate frames
+    last_agent_positions = {}
+    for step in range(MAX_STEPS):
         print(f"Generating frame for step {step}")
         generate_frame(model, step, OUTPUT_FRAMES_DIR, MIN_LAT_ELEVATION, MAX_LAT_ELEVATION, MIN_LON_ELEVATION, MAX_LON_ELEVATION, CELL_SIZE)
-        model.step()
+        
+        current_agent_positions = {agent.unique_id: agent.pos for agent in model.schedule.agents}
+        if current_agent_positions == last_agent_positions:
+            print(f"No agent moved for step {step}. Repeating frame.")
+            for i in range(20):
+                step += 1
+                print(f"Generating repeated frame for step {step}")
+                generate_frame(model, step, OUTPUT_FRAMES_DIR, MIN_LAT_ELEVATION, MAX_LAT_ELEVATION, MIN_LON_ELEVATION, MAX_LON_ELEVATION, CELL_SIZE)
+            break  # Stop the simulation loop
+        else:
+            last_agent_positions = current_agent_positions
+            model.step()
+
+    # get elevation bins:
+    elevation_bins = {
+        "<160": 0.0,
+        ">=160,<165": 0.0,
+        ">=165,<170": 0.0,
+        ">=170,<175": 0.0,
+        ">=175,<180": 0.0,
+        ">=180,<190": 0.0,
+        ">=190,<200": 0.0,
+        ">=200,<220": 0.0,
+        ">=220,<240": 0.0,
+        ">=240,<260": 0.0,
+        ">=260,<300": 0.0,
+        ">=300": 0.0,        
+    }
+
+    for agent in model.schedule.agents:
+        x, y = agent.pos
+        elevation = model.elevation[y, x]
+
+
+        if elevation < 160:
+            elevation_bins["<160"] += 1
+        elif 160 <= elevation < 165:
+            elevation_bins[">=160,<165"] += 1
+        elif 165 <= elevation < 170:
+            elevation_bins[">=165,<170"] += 1
+        elif 170 <= elevation < 175:
+            elevation_bins[">=170,<175"] += 1
+        elif 175 <= elevation < 180:
+            elevation_bins[">=175,<180"] += 1
+        elif 180 <= elevation < 190:
+            elevation_bins[">=180,<190"] += 1
+        elif 190 <= elevation < 200:
+            elevation_bins[">=190,<200"] += 1
+        elif 200 <= elevation < 220:
+            elevation_bins[">=200,<220"] += 1
+        elif 220 <= elevation < 240:
+            elevation_bins[">=220,<240"] += 1
+        elif 240 <= elevation < 260:
+            elevation_bins[">=240,<260"] += 1
+        elif 260 <= elevation < 300:
+            elevation_bins[">=260,<300"] += 1
+        else:
+            elevation_bins[">=300"] += 1
+
+    # Convert counts to percentages
+    total_elevations = len(model.schedule.agents)
+    for key in elevation_bins:
+        elevation_bins[key] /= total_elevations
+
+    print(f"Elevation weight: {elevation_weight}\n{elevation_bins}")
+
+    # get tomb distance bins
+    tomb_distance_bins = {
+        "0_25": 0,
+        "25_75": 0,
+        "75_150": 0,
+        "150_250": 0,
+        "250_400": 0,
+        "400_600": 0,
+        "600_800": 0,
+        "800_1000": 0,
+        "1000_1200": 0,
+    }
+
+    for agent in model.schedule.agents:
+        x, y = agent.pos
+        distance_bins = agent.get_tomb_distance_bins(x, y)
+
+        for key in distance_bins:
+            tomb_distance_bins[key] += distance_bins[key]
+
+    for key in tomb_distance_bins:
+        tomb_distance_bins[key] /= len(model.schedule.agents)
+
+    print(f"Tomb distance weight: {tomb_distance_weight}\n{tomb_distance_bins}")
+    
+
+    # x, y = self.pos
+    # tile_elevation = self.model.elevation[y, x]
+
 
     # Create the video using ffmpeg
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_video_file = os.path.join(output_path, f"simulation_{timestamp}.mp4")
-    frame_pattern = os.path.join(OUTPUT_FRAMES_DIR, "step_%04d.png")
+    frame_pattern = os.path.join(OUTPUT_FRAMES_DIR, "step_%03d.png")
     ffmpeg_cmd = [
         'ffmpeg',
         '-framerate', str(FRAMES_PER_SECOND),
@@ -621,11 +868,11 @@ if __name__ == "__main__":
         print(f"Simulation video saved to {output_video_file}")
         print(f"Video path: {os.path.abspath(output_video_file)}")
         # Clean up the frames directory (optional)
-        # import shutil
-        # shutil.rmtree(OUTPUT_FRAMES_DIR)
-
+        import shutil
+        shutil.rmtree(OUTPUT_FRAMES_DIR)
+        print(f"Frames deleted from {OUTPUT_FRAMES_DIR}") #added print
     except subprocess.CalledProcessError as e:
-        print(f"Error running ffmpeg: {e}")
-        print(f"FFmpeg stderr: {e.stderr.decode()}")
+        print(f"Error generating video: {e}")
+        print(f"FFmpeg output: {e.stderr.decode()}")
     except FileNotFoundError:
         print("Error: ffmpeg command not found. Make sure it is installed and in your system's PATH.")

@@ -37,7 +37,7 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
             tomb_distance_weight = form.getvalue('tomb_distance_weight')
             agent_distance_weight = form.getvalue('agent_distance_weight')
             slope_weight = form.getvalue('slope_weight')
-            print(f"Received data: num_agents={num_agents}, elevation_weight={elevation_weight}, tomb_distance_weight={tomb_distance_weight}, agent_distance_weight={agent_distance_weight}")
+            print(f"Received data: num_agents={num_agents}, elevation_weight={elevation_weight}, tomb_distance_weight={tomb_distance_weight}, agent_distance_weight={agent_distance_weight}, slope_weight={slope_weight}")
             command = [
                 "python",
                 PYTHON_SCRIPT,
@@ -48,6 +48,7 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 "--slope_weight", slope_weight,
                 "--output_dir", OUTPUT_DIR
             ]
+            print(" ".join(command))
             try:
                 process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
