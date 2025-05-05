@@ -192,6 +192,7 @@ def calculate_conditional_owner_probs(tomb_df):
     elev_bins = [160, 170, 180, 190, 200, 210, 220, 230, 240, 250]
     df["ElevationBin"] = pd.cut(df["Elevation_main (m)"], bins=elev_bins)
     df["EntranceBin"] = df["Entrance Location"]
+    #TODO define what small medium and large is
     df["AreaBin"] = pd.qcut(df["Area (m²)"], q=3, labels=["Small", "Medium", "Large"])
 
     # Step 2: Drop missing
@@ -271,7 +272,7 @@ class WalkerAgent(Agent):
                 if 0 <= ny < self.model.grid.height and 0 <= nx < self.model.grid.width:
                     neighbor_elevation = self.model.elevation[ny, nx]
 
-                    # 🪜 Step 1: Bin the elevation
+                    # Step 1: Bin the elevation
                     if neighbor_elevation < 170:
                         elev_bin = "(160, 170]"
                     elif neighbor_elevation < 180:
@@ -291,15 +292,16 @@ class WalkerAgent(Agent):
                     else:
                         elev_bin = "(240, 250]"
 
-                    # 🪜 Step 2: Make assumptions for entrance + area bin
-                    entrance_bin = "end of spur"  # You can refine this later
-                    area_bin = "Medium"           # Or estimate based on terrain, etc.
+                    # Step 2: Make assumptions for entrance + area bin
+                    # TODO refine and fix later
+                    entrance_bin = "Base of sloping hill" 
+                    area_bin = "Medium"           
 
-                    # 🧠 Step 3: Look up conditional probability
+                    # Step 3: Look up conditional probability
                     key = (elev_bin, entrance_bin, area_bin)
                     tomb_type_prob = self.model.conditional_owner_probs.get(key, {}).get(self.target_tomb_type, 0)
 
-                    # 🧮 Step 4: Combine elevation preference and type probability
+                    # Step 4: Combine elevation preference and type probability
                     elev_weight = self._get_elevation_preference_weight(neighbor_elevation)
                     total_weight = elev_weight * (1 + 3 * tomb_type_prob)
 
