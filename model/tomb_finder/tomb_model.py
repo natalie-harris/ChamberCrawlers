@@ -13,7 +13,6 @@ import math
 import sys
 import argparse
 import time
-
 import random
 
 # Path to the elevation data JSON file
@@ -23,7 +22,7 @@ OUTPUT_DIR = "output"
 OUTPUT_FRAMES_DIR = os.path.join(OUTPUT_DIR, "simulation_frames")
 FRAMES_PER_SECOND = 5
 TOTAL_STEPS = 100  # Number of simulation steps to run
-CELL_SIZE = 30 # meters per cell
+CELL_SIZE = 30  # meters per cell
 MIN_LAT_ELEVATION = 25.73753
 MAX_LAT_ELEVATION = 25.74315
 MIN_LON_ELEVATION = 32.59838
@@ -36,7 +35,7 @@ KV1_NORTHING = 99803.743
 KV1_EASTING = 94006.256
 
 # Rotation angle (clockwise)
-rotation_degrees = 27 + (2/60) + (23/3600)
+rotation_degrees = 27 + (2 / 60) + (23 / 3600)
 rotation_radians = math.radians(rotation_degrees)
 
 # Target distribution of tomb distances
@@ -52,6 +51,10 @@ DIST_TARGET_DISTRIBUTION = {
     "1000_1200": 0.0275
 }
 
+# Define agent starting location
+AGENT_START_LOCATION = (13, 8)  # Example: row 20, column 20
+
+
 def weighted_random_choice(weight_dict):
     total = sum(weight_dict.values())
     r = random.uniform(0, total)
@@ -60,6 +63,7 @@ def weighted_random_choice(weight_dict):
         if upto + w >= r:
             return k
         upto += w
+
 
 def load_elevation_data(file_path):
     """Loads elevation data from a JSON file into a NumPy array."""
@@ -84,6 +88,7 @@ def load_elevation_data(file_path):
         print(f"An unexpected error occurred while loading elevation data: {e}")
         return None
 
+
 def load_tomb_data(file_path):
     """Loads tomb data from a CSV file into a Pandas DataFrame."""
     try:
@@ -92,11 +97,13 @@ def load_tomb_data(file_path):
         print(f"Error: Tomb data file '{file_path}' not found.")
         return None
 
+
 def rotate_coords(easting, northing, angle_radians):
     """Rotates coordinates counter-clockwise by a given angle."""
     rotated_easting = easting * math.cos(angle_radians) - northing * math.sin(angle_radians)
     rotated_northing = easting * math.sin(angle_radians) + northing * math.cos(angle_radians)
     return rotated_easting, rotated_northing
+
 
 def meters_per_degree(latitude):
     """Approximates meters per degree of latitude and longitude at a given latitude."""
@@ -104,6 +111,7 @@ def meters_per_degree(latitude):
     lat_m_per_deg = 111132.954 - 559.822 * math.cos(2 * lat_rad) + 1.175 * math.cos(4 * lat_rad)
     lon_m_per_deg = (111320.747 - 372.936 * math.cos(2 * lat_rad) + 0.3975 * math.cos(4 * lat_rad)) * math.cos(lat_rad)
     return lat_m_per_deg, lon_m_per_deg
+
 
 def latlon_to_grid_coords(latitude, longitude, min_lat, max_lat, min_lon, max_lon, grid_height, grid_width):
     """Converts latitude and longitude to grid coordinates (row, col)."""
@@ -122,9 +130,12 @@ def latlon_to_grid_coords(latitude, longitude, min_lat, max_lat, min_lon, max_lo
     else:
         return None, None
 
+
 """
 AGENT
 """
+
+
 class WalkerAgent(Agent):
     def __init__(self, unique_id, model, start_location, weights):
         super().__init__(model)
@@ -162,44 +173,128 @@ class WalkerAgent(Agent):
             return 0.00  # Default for elevations outside the given range
 
     def _get_tomb_distance_preference(self, x, y):
-        return 0
-    
+        """
+        Calculates preference based on distance to the nearest tomb.
+        Prefers being close, but not too close, to tombs.
+        """
+        min_distance = float('inf')
+        for tomb_x, tomb_y in self.model.tomb_locations:
+            distance = math.sqrt((x - tomb_x) ** 2 + (y - tomb_y) ** 2)
+            min_distance = min(min_distance, distance)
+
+        if min_distance < 2:  # Avoid being on or too close to a tomb
+            return 0.0
+        elif 2 <= min_distance < 5:
+            return 0.8
+        elif 5 <= min_distance < 10:
+            return 1.0
+        elif 10 <= min_distance < 20:
+            return 0.6
+        elif 20 <= min_distance < 30:
+            return 0.3
+        else:
+            return 0.1
+
     def _get_agent_distance_preference(self, x, y):
-        return 0
+        """
+        Calculates preference based on distance to other agents.
+        Prefers to be away from other agents.
+        """
+        min_distance = float('inf')
+        for agent in self.model.schedule.agents:
+            if agent != self:
+                distance = math.sqrt((x - agent.pos[0]) ** 2 + (y - agent.pos[1]) ** 2)
+                min_distance = min(min_distance, distance)
+        if min_distance < 2:
+            return 0.0
+        elif 2 <= min_distance < 5:
+            return 0.8
+        elif 5 <= min_distance < 10:
+            return 1.0
+        elif 10 <= min_distance < 20:
+            return 0.6
+        else:
+            return 0.1
+
+    def _get_slope_preference(self, x, y):
+        """
+        Calculates the slope of the terrain at the given coordinates using gradient descent.
+        Prefers steeper slopes (magnitude of the gradient vector).
+        """
+        elevation = self.model.elevation
+        width = self.model.grid.width
+        height = self.model.grid.height
+
+        # Get the elevation of the current cell
+        center_elevation = elevation[y, x]
+
+        # Calculate the partial derivatives (approximated using neighboring cells)
+        dz_dx = 0
+        dz_dy = 0
+        num_neighbors = 0
+
+        # Check neighbors and calculate partial derivatives
+        if x > 0:
+            dz_dx += center_elevation - elevation[y, x - 1]
+            num_neighbors += 1
+        if x < width - 1:
+            dz_dx += elevation[y, x + 1] - center_elevation
+            num_neighbors += 1
+        if y > 0:
+            dz_dy += center_elevation - elevation[y - 1, x]
+            num_neighbors += 1
+        if y < height - 1:
+            dz_dy += elevation[y + 1, x] - center_elevation
+            num_neighbors += 1
+
+        if num_neighbors > 0:
+            dz_dx /= num_neighbors
+            dz_dy /= num_neighbors
+
+        # Calculate the magnitude of the gradient vector
+        slope_magnitude = math.sqrt(dz_dx ** 2 + dz_dy ** 2)
+
+        # Normalize the slope magnitude to get a preference value between 0 and 1
+        # You might need to adjust the normalization factor (e.g., 10, or the max slope)
+        # depending on the range of your elevation data.
+        max_expected_slope = 10  #  Adjust this based on your data's typical slope range
+        preference = min(1.0, slope_magnitude / max_expected_slope)  # Clamp to 1
+        return preference
 
     def _get_tile_preference(self, x, y):
         total_preference = 0
 
         # elevation preference
-        tile_elevation = self.model_elevation[y, x]
-        elevation_preference = self._get_elevation_preference(tile_elevation) * self.weights['elevation']
+        tile_elevation = self.model.elevation[y, x]
+        elevation_preference = self._get_elevation_preference(tile_elevation) * self.weights['elevation_weight']
         total_preference += elevation_preference
 
-        # NOT IMPLEMENTED YET
         # tomb distance preference
-        tomb_distance_preference = self._get_tomb_distance_preference(x, y) * self.weights['tomb_distance']
+        tomb_distance_preference = self._get_tomb_distance_preference(x, y) * self.weights['tomb_distance_weight']
         total_preference += tomb_distance_preference
 
-        # NOT IMPLEMENTED YET
         # agent distance preference
-        agent_distance_preference = self._get_agent_distance_preference(x, y) * self.weights['agent_distance']
+        agent_distance_preference = self._get_agent_distance_preference(x, y) * self.weights['agent_distance_weight']
         total_preference += agent_distance_preference
-        
+
+        # slope preference
+        slope_preference = self._get_slope_preference(x, y) * self.weights['slope_weight']
+        total_preference += slope_preference
+
         return total_preference
 
     def step(self):
         if self.steps_taken < self.max_steps:
             x, y = self.pos
-            neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=True)
+            neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=False)
             possible_moves = []
             weights = []
 
             for nx, ny in neighbors:
                 if 0 <= ny < self.model.grid.height and 0 <= nx < self.model.grid.width:
-                    neighbor_elevation = self.model.elevation[ny, nx]
-                    weight = self._get_elevation_preference(neighbor_elevation)
+                    neighbor_preference = self._get_tile_preference(nx, ny)
                     possible_moves.append((nx, ny))
-                    weights.append(weight)
+                    weights.append(neighbor_preference)
 
             # Normalize weights to create a probability distribution
             total_weight = sum(weights)
@@ -210,8 +305,8 @@ class WalkerAgent(Agent):
 
             self.steps_taken += 1
 
-def create_distance_distribution(tombs):
 
+def create_distance_distribution(tombs):
     # Categorize all pairwise distances
     bins = {
         "0_25": 0,
@@ -227,7 +322,7 @@ def create_distance_distribution(tombs):
     total_pairs = 0
 
     for i in range(len(tombs)):
-        for j in range(i+1, len(tombs)):
+        for j in range(i + 1, len(tombs)):
             d = haversine(tombs[i]["lon"], tombs[i]["lat"], tombs[j]["lon"], tombs[j]["lat"])
             total_pairs += 1
 
@@ -252,10 +347,11 @@ def create_distance_distribution(tombs):
 
     return bins, total_pairs
 
+
 # Check if placement fits DISTANCE distribution
 def fits_distribution(tombs):
     # Categorize all pairwise distances
-    bins, total_pairs = create_distance_distribution
+    bins, total_pairs = create_distance_distribution(tombs)
 
     # Compare ratios to target
     if total_pairs == 0:
@@ -271,6 +367,7 @@ def fits_distribution(tombs):
 
     return True
 
+
 # Haversine Distance
 def haversine(lon1, lat1, lon2, lat2):
     R = 6371000  # radius of Earth in meters
@@ -279,31 +376,37 @@ def haversine(lon1, lat1, lon2, lat2):
     delta_phi = math.radians(lat2 - lat1)
     delta_lambda = math.radians(lon2 - lon1)
 
-    a = (math.sin(delta_phi/2)**2 +
-         math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda/2)**2)
+    a = (math.sin(delta_phi / 2) ** 2 +
+         math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
 
+
 """
 MODEL
 """
+
+
 class TerrainModel(Model):
-    def __init__(self, width=None, height=None, num_agents=10, elevation_weight=0.5, tomb_distance_weight=0.5, agent_distance_weight=0.5, elevation_data_path=ELEVATION_DATA_PATH, tomb_data_path=TOMB_DATA_PATH):
+    def __init__(self, width=None, height=None, num_agents=10, elevation_weight=0.5, tomb_distance_weight=0.5,
+                 agent_distance_weight=0.5, slope_weight=0.5,  # Added slope_weight
+                 elevation_data_path=ELEVATION_DATA_PATH, tomb_data_path=TOMB_DATA_PATH):
         super().__init__()
         self.elevation_data = load_elevation_data(elevation_data_path)
         self.tomb_df = load_tomb_data(tomb_data_path)
-        self.tomb_locations = set() # Store grid coordinates of tombs
+        self.tomb_locations = set()  # Store grid coordinates of tombs
 
         self.weights = {
             "elevation_weight": elevation_weight,
             "tomb_distance_weight": tomb_distance_weight,
-            "agent_distance_weight": agent_distance_weight
+            "agent_distance_weight": agent_distance_weight,
+            "slope_weight": slope_weight,  # Include slope weight
         }
 
         if self.elevation_data is None:
             if width is None or height is None:
-                self.width = 8 # Example dimensions if no elevation data
+                self.width = 8  # Example dimensions if no elevation data
                 self.height = 6
                 self.elevation = np.random.randint(0, 101, size=(self.height, self.width))
                 print("Warning: Could not load elevation data. Using random elevation grid.")
@@ -316,7 +419,8 @@ class TerrainModel(Model):
             self.elevation = self.elevation_data
             self.height, self.width = self.elevation.shape
             if width is not None and height is not None and (self.width != width or self.height != height):
-                print("Warning: Provided width and height do not match the dimensions of the loaded elevation data.")
+                print(
+                    "Warning: Provided width and height do not match the dimensions of the loaded elevation data.")
 
         self.grid = MultiGrid(self.width, self.height, torus=False)
         self.schedule = RandomActivation(self)
@@ -338,7 +442,8 @@ class TerrainModel(Model):
                 delta_easting_relative = tomb_easting - kv1_easting
                 delta_northing_relative = tomb_northing - kv1_northing
 
-                rotated_easting_na, rotated_northing_na = rotate_coords(delta_easting_relative, delta_northing_relative, -rotation_radians)
+                rotated_easting_na, rotated_northing_na = rotate_coords(delta_easting_relative,
+                                                                       delta_northing_relative, -rotation_radians)
 
                 delta_lat = rotated_northing_na / lat_m_per_deg
                 delta_lon = rotated_easting_na / lon_m_per_deg
@@ -347,26 +452,32 @@ class TerrainModel(Model):
                 estimated_lon = kv1_lon + delta_lon
 
                 grid_row, grid_col = latlon_to_grid_coords(
-                    estimated_lat, estimated_lon, MIN_LAT_ELEVATION, MAX_LAT_ELEVATION, MIN_LON_ELEVATION, MAX_LON_ELEVATION, self.height, self.width
+                    estimated_lat, estimated_lon, MIN_LAT_ELEVATION, MAX_LAT_ELEVATION, MIN_LON_ELEVATION,
+                    MAX_LON_ELEVATION, self.height, self.width
                 )
                 if grid_row is not None and grid_col is not None:
                     self.tomb_locations.add((grid_row, grid_col))
 
         for i in range(num_agents):
+            # Use the constant starting location
+            start_x, start_y = AGENT_START_LOCATION
             # Ensure agents start within the grid bounds
-            start_x = self.random.randrange(self.width)
-            start_y = self.random.randrange(self.height)
-            agent = WalkerAgent(unique_id=f"walker_{i}", model=self, start_location=(start_x, start_y), weights=self.weights)
+            start_x = max(0, min(start_x, self.width - 1))
+            start_y = max(0, min(start_y, self.height - 1))
+
+            agent = WalkerAgent(unique_id=f"walker_{i}", model=self, start_location=(start_x, start_y),
+                                weights=self.weights)
             self.schedule.add(agent)
             self.grid.place_agent(agent, (start_x, start_y))
 
         self.running = True
+        self.model_elevation = self.elevation
 
     def step(self):
         self.schedule.step()
         self.steps += 1
         self.check_for_agent_overlap()
-    
+
     # Checks the grid for cells with more than one agent and prints a report.
     def check_for_agent_overlap(self):
         overlapping_cells = {}
@@ -412,7 +523,8 @@ def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, 
     tomb_rows, tomb_cols = zip(*model.tomb_locations) if model.tomb_locations else ([], [])
     tomb_x = np.array(tomb_cols) * cell_size + cell_size / 2
     tomb_y = (grid_height - 1 - np.array(tomb_rows)) * cell_size + cell_size / 2
-    plt.scatter(tomb_x, tomb_y, color='white', marker='^', s=100, edgecolors='black', linewidths=0.5, label='Tomb Entrance')
+    plt.scatter(tomb_x, tomb_y, color='white', marker='^', s=100, edgecolors='black', linewidths=0.5,
+                label='Tomb Entrance')
 
     # Plot agent positions (adjust y-coordinate for flipped axis)
     agent_x = [pos[0] * cell_size + cell_size / 2 for pos in agent_positions.values()]
@@ -450,6 +562,7 @@ if __name__ == "__main__":
     parser.add_argument('--elevation_weight', type=float, default=0.5, help='Influence of elevation on agent movement.')
     parser.add_argument('--tomb_distance_weight', type=float, default=0.5, help='Influence of distance to tombs.')
     parser.add_argument('--agent_distance_weight', type=float, default=0.5, help='Influence of distance to other agents.')
+    parser.add_argument('--slope_weight', type=float, default=0.5, help='Influence of slope of the tile relative to surrounding tiles.')
     parser.add_argument('--output_dir', type=str, default=OUTPUT_DIR, help='Where the simulation recording ends up.')
 
     args = parser.parse_args()  # Parse the arguments
@@ -458,13 +571,14 @@ if __name__ == "__main__":
     elevation_weight = args.elevation_weight
     tomb_distance_weight = args.tomb_distance_weight
     agent_distance_weight = args.agent_distance_weight
+    slope_weight = args.slope_weight
     output_path = args.output_dir
 
     # Load elevation data to get grid dimensions
     elevation_data = load_elevation_data(ELEVATION_DATA_PATH)
     if elevation_data is not None:
         grid_height, grid_width = elevation_data.shape
-        model = TerrainModel(width=grid_width, height=grid_height, num_agents=num_agents, elevation_weight=elevation_weight, tomb_distance_weight=tomb_distance_weight, agent_distance_weight=agent_distance_weight)
+        model = TerrainModel(width=grid_width, height=grid_height, num_agents=num_agents, elevation_weight=elevation_weight, tomb_distance_weight=tomb_distance_weight, agent_distance_weight=agent_distance_weight, slope_weight=slope_weight)
     else:
         print("Elevation data not found!")
         exit()

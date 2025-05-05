@@ -36,6 +36,7 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
             elevation_weight = form.getvalue('elevation_weight')
             tomb_distance_weight = form.getvalue('tomb_distance_weight')
             agent_distance_weight = form.getvalue('agent_distance_weight')
+            slope_weight = form.getvalue('slope_weight')
             print(f"Received data: num_agents={num_agents}, elevation_weight={elevation_weight}, tomb_distance_weight={tomb_distance_weight}, agent_distance_weight={agent_distance_weight}")
             command = [
                 "python",
@@ -44,6 +45,7 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 "--elevation_weight", elevation_weight,
                 "--tomb_distance_weight", tomb_distance_weight,
                 "--agent_distance_weight", agent_distance_weight,
+                "--slope_weight", slope_weight,
                 "--output_dir", OUTPUT_DIR
             ]
             try:
