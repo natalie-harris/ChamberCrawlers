@@ -137,13 +137,14 @@ AGENT
 
 
 class WalkerAgent(Agent):
-    def __init__(self, unique_id, model, start_location, weights):
+    def __init__(self, unique_id, model, start_location, weights, deterministic=True):
         super().__init__(model)
         self.pos = start_location
         self.steps_taken = 0
         self.max_steps = TOTAL_STEPS
         self.weights = weights
         self.unique_id = unique_id
+        self.deterministic = deterministic
 
     def _get_elevation_preference(self, elevation):
         """Assigns a weight based on the provided elevation distribution."""
@@ -296,12 +297,19 @@ class WalkerAgent(Agent):
                     possible_moves.append((nx, ny))
                     weights.append(neighbor_preference)
 
-            # Normalize weights to create a probability distribution
-            total_weight = sum(weights)
-            if total_weight > 0:
-                probabilities = [w / total_weight for w in weights]
-                new_location = self.random.choices(possible_moves, weights=probabilities, k=1)[0]
-                self.model.grid.move_agent(self, new_location)
+                if self.deterministic:
+                    # Deterministic model: Choose the move with the highest weight
+                    if weights:
+                        max_weight_index = weights.index(max(weights))
+                        new_location = possible_moves[max_weight_index]
+                        self.model.grid.move_agent(self, new_location)
+                else:
+                    # Probabilistic model: Normalize weights to create a probability distribution
+                    total_weight = sum(weights)
+                    if total_weight > 0:
+                        probabilities = [w / total_weight for w in weights]
+                        new_location = self.random.choices(possible_moves, weights=probabilities, k=1)[0]
+                        self.model.grid.move_agent(self, new_location)
 
             self.steps_taken += 1
 
