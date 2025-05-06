@@ -22,13 +22,14 @@ import pandas as pd
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 
 # Load your real tomb data
 df = pd.read_csv("../../data/tombs_data.csv")
 
 # Replace with your actual column names
-EASTING_COL = "Easting (m)"  
-NORTHING_COL = "Northing (m)"  
+EASTING_COL = "Easting (m)"
+NORTHING_COL = "Northing (m)"
 
 # Convert Easting and Northing to numeric (force errors to NaN)
 df[EASTING_COL] = pd.to_numeric(df[EASTING_COL], errors='coerce')
@@ -48,6 +49,7 @@ for i in range(len(df)):
         distances.append(distance)
 
 distances = np.array(distances)
+total_pairs = len(distances)
 
 # Print stats
 print(f"Minimum distance between tombs: {np.min(distances):.2f} meters")
@@ -55,11 +57,28 @@ print(f"Average distance between tombs: {np.mean(distances):.2f} meters")
 print(f"Median distance between tombs: {np.median(distances):.2f} meters")
 print(f"Maximum distance between tombs: {np.max(distances):.2f} meters")
 
-# Plot histogram
-plt.figure(figsize=(10, 6))
-plt.hist(distances, bins=50, color="purple", edgecolor="black")
-plt.title("Distribution of Tomb-to-Tomb Distances (meters)")
+bins = np.linspace(0, 1200, 7)
+
+counts, bin_edges, _ = plt.hist(
+    distances,
+    bins=bins,
+    color='blue',
+    edgecolor='black',
+    weights=np.ones(len(distances)) / len(distances) * 100
+)
+
+for count, left, right in zip(counts, bin_edges[:-1], bin_edges[1:]):
+    height = count
+    center = (left + right) / 2
+    if height > 0:
+        plt.text(center, height + 0.3, f"{height:.1f}%", ha='center', va='bottom', fontsize=8)
+
 plt.xlabel("Distance (meters)")
-plt.ylabel("Number of tomb pairs")
-plt.grid(True)
+plt.ylabel("Percentage of Tomb Pairs")
+plt.title("Distribution of Tomb-to-Tomb Distances (Percentage)")
+plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter())
+plt.gca().yaxis.set_major_locator(mtick.MultipleLocator(2))
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+plt.tight_layout()
 plt.show()
