@@ -19,7 +19,7 @@ TOMB_DATA_PATH = "../../data/tombs_data.csv"
 OUTPUT_DIR = "output"
 OUTPUT_FRAMES_DIR = os.path.join(OUTPUT_DIR, "simulation_frames")
 FRAMES_PER_SECOND = 5
-MAX_STEPS = 35  # Number of simulation steps to run
+MAX_STEPS = 100  # Number of simulation steps to run
 CELL_SIZE = 30  # meters per cell
 MIN_LAT_ELEVATION = 25.73753
 MAX_LAT_ELEVATION = 25.74315
@@ -31,6 +31,8 @@ KV1_LAT = 25.74246687974823
 KV1_LON = 32.601921510860855
 KV1_NORTHING = 99803.743
 KV1_EASTING = 94006.256
+
+LAYERS = 2
 
 # Rotation angle (clockwise)
 rotation_degrees = 27 + (2 / 60) + (23 / 3600)
@@ -434,36 +436,56 @@ class WalkerAgent(Agent):
     def step(self):
         if self.steps_taken < self.max_steps:
             x, y = self.pos
-            neighbors = self.model.grid.get_neighborhood((x, y), moore=True, include_center=True)
-            possible_moves = []
-            weights = []
+            best_move = None
+            max_preference = -float('inf')
+            best_adjacent_x = None
+            best_adjacent_y = None
 
-            for nx, ny in neighbors:
+            for layer in range(1, LAYERS + 1):  # Iterate through layers
+                # Get the squares in the current layer
+                layer_squares = []
+                for i in range(-layer, layer + 1):
+                    for j in range(-layer, layer + 1):
+                        if i == 0 and j == 0:
+                            continue  # Skip the center cell
+                        new_x, new_y = x + i, y + j
+                        if 0 <= new_x < self.model.grid.width and 0 <= new_y < self.model.grid.height:
+                            layer_squares.append((new_x, new_y))
 
-                # print(nx, ny)
-                if (nx != x or ny != y) and not self.model.grid.is_cell_empty((nx,ny)):
-                    continue
+                # Evaluate preferences for squares in the current layer
+                for sx, sy in layer_squares:
+                    if not self.model.grid.is_cell_empty((sx,sy)) and (sx,sy) != (x,y):
+                        continue
+                    
+                    neighbor_preference = self._get_tile_preference(sx, sy)
+                    if neighbor_preference > max_preference:
+                        max_preference = neighbor_preference
+                        # Determine the *adjacent* move towards the best square
+                        dx = 0
+                        if sx > x:
+                            dx = 1
+                        elif sx < x:
+                            dx = -1
+                        dy = 0
+                        if sy > y:
+                            dy = 1
+                        elif sy < y:
+                            dy = -1
+                        
+                        adjacent_x = x + dx
+                        adjacent_y = y + dy
+                        
+                        if 0 <= adjacent_x < self.model.grid.width and 0 <= adjacent_y < self.model.grid.height:
+                            best_adjacent_x = adjacent_x
+                            best_adjacent_y = adjacent_y
+                        else:
+                            best_adjacent_x = None
+                            best_adjacent_y = None
 
-                if 0 <= ny < self.model.grid.height and 0 <= nx < self.model.grid.width:
-                    neighbor_preference = self._get_tile_preference(nx, ny)
-                    possible_moves.append((nx, ny))
-                    weights.append(neighbor_preference)
-
-                if self.deterministic:
-                    # Deterministic model: Choose the move with the highest weight
-                    if weights:
-                        max_weight_index = weights.index(max(weights))
-                        new_location = possible_moves[max_weight_index]
-                        self.model.grid.remove_agent(self)
-                        self.model.grid.move_agent(self, new_location)
-                else:
-                    # Probabilistic model: Normalize weights to create a probability distribution
-                    total_weight = sum(weights)
-                    if total_weight > 0:
-                        probabilities = [w / total_weight for w in weights]
-                        new_location = self.random.choices(possible_moves, weights=probabilities, k=1)[0]
-                        self.model.grid.remove_agent(self)
-                        self.model.grid.move_agent(self, new_location)
+            if best_adjacent_x is not None and best_adjacent_y is not None:
+                if self.model.grid.is_cell_empty((best_adjacent_x, best_adjacent_y)): # added this check
+                    self.model.grid.remove_agent(self)
+                    self.model.grid.move_agent(self, (best_adjacent_x, best_adjacent_y))
 
             self.steps_taken += 1
 
@@ -689,7 +711,7 @@ def generate_frame(model, step, output_dir, min_lat, max_lat, min_lon, max_lon, 
     # Plot agent positions (adjust y-coordinate for flipped axis)
     agent_x = [pos[0] * cell_size + cell_size / 2 for pos in agent_positions.values()]
     agent_y = [(grid_height - 1 - pos[1]) * cell_size + cell_size / 2 for pos in agent_positions.values()]
-    plt.scatter(agent_x, agent_y, color='red', s=50, edgecolors='black', linewidths=0.5, label='Agents')
+    plt.scatter(agent_x, agent_y, color='red', s=50, edgecolors='black', linewidths=0.5, label='Builders')
 
     # Set ticks based on meters from the bottom left
     x_ticks = np.arange(0, grid_width * cell_size, cell_size * 5)  # Every 5 cells (150 m)
@@ -816,7 +838,7 @@ if __name__ == "__main__":
     for key in elevation_bins:
         elevation_bins[key] /= total_elevations
 
-    print(f"Elevation weight: {elevation_weight}\n{elevation_bins}")
+    # print(f"Elevation weight: {elevation_weight}\n{elevation_bins}")
 
     # get tomb distance bins
     tomb_distance_bins = {
@@ -841,7 +863,7 @@ if __name__ == "__main__":
     for key in tomb_distance_bins:
         tomb_distance_bins[key] /= len(model.schedule.agents)
 
-    print(f"Tomb distance weight: {tomb_distance_weight}\n{tomb_distance_bins}")
+    # print(f"Tomb distance weight: {tomb_distance_weight}\n{tomb_distance_bins}")
     
 
     # x, y = self.pos
