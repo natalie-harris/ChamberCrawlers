@@ -1,3 +1,4 @@
+# Deterministic with radius of 60m 
 import pandas as pd
 import numpy as np
 from mesa import Agent, Model

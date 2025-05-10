@@ -1,0 +1,1 @@
+# Deterministic with radius of 30m 
