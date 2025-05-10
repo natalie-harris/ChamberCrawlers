@@ -1,5 +1,3 @@
-# Natalie's version of elevation.py
-
 import os
 import rasterio
 import numpy as np
@@ -16,10 +14,10 @@ def main():
     # Create output folder if needed
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # Open the GeoTIFF
+    # Open the GeoTIFF (no clipping)
     with rasterio.open(TIF_FILE) as dataset:
-        elevation_array = dataset.read(1)
-        transform = dataset.transform
+        elevation_array = dataset.read(1)  # Read full dataset
+        transform = dataset.transform       # Full transform (no window)
 
         elevation_min = np.min(elevation_array)
         elevation_max = np.max(elevation_array)
@@ -30,8 +28,8 @@ def main():
             row, col = dataset.index(sample_lon, sample_lat)
             elevation_value = elevation_array[row, col]
             print(f"Elevation at ({sample_lon}, {sample_lat}): {elevation_value:.2f} meters")
-        except IndexError:
-            print(f"Sample coordinate ({sample_lon}, {sample_lat}) is outside the raster bounds.")
+        except Exception:
+            print(f"Sample coordinate ({sample_lon}, {sample_lat}) is outside the dataset bounds.")
 
         # === Plot Elevation Map with Real World Coordinates ===
         plt.figure(figsize=(12, 8))
@@ -41,17 +39,17 @@ def main():
         ]
         img = plt.imshow(elevation_array, cmap='terrain', extent=extent, origin='upper')
         plt.colorbar(img, label="Elevation (meters)")
-        plt.title("Elevation Map - Valley of the Kings")
+        plt.title("Elevation Map - Full Dataset")
         plt.xlabel("Longitude")
         plt.ylabel("Latitude")
         plt.grid(False)
-        plt.savefig(f"{OUTPUT_DIR}/elevation_map.png", bbox_inches='tight')
+        plt.savefig(os.path.join(OUTPUT_DIR, "elevation_map.png"))  # Save the plot
         plt.close()
 
         # === Plot Smoothed Elevation Histogram ===
         plt.figure(figsize=(10, 6))
         elevations = elevation_array.flatten()
-        elevations = elevations[elevations > 0]  # Filter out invalid or no-data values
+        elevations = elevations[elevations > 0]  # Filter out invalid/no-data values
         hist, bins = np.histogram(elevations, bins=100)
         hist_smoothed = gaussian_filter(hist, sigma=2)  # Smooth
 
@@ -61,10 +59,10 @@ def main():
         plt.xlabel("Elevation (meters)")
         plt.ylabel("Frequency")
         plt.grid(True)
-        plt.savefig(f"{OUTPUT_DIR}/elevation_histogram.png", bbox_inches='tight')
+        plt.savefig(os.path.join(OUTPUT_DIR, "elevation_histogram.png"))  # Save the plot
         plt.close()
 
-    print(f"✅ Smoothed plots saved to {OUTPUT_DIR}/")
+    print(f"Smoothed plots saved to {OUTPUT_DIR}/")
 
 if __name__ == "__main__":
     main()
