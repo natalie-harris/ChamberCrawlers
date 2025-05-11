@@ -15,7 +15,7 @@ import argparse
 import random
 
 # Path to the elevation data JSON file
-ELEVATION_DATA_PATH = "../../data/data_acquisition/elevation/KVElevation.json"
+ELEVATION_DATA_PATH = "../../data/data_acquisition/elevation_heatmap/KVElevation.json"
 TOMB_DATA_PATH = "../../data/tombs_data.csv"
 OUTPUT_DIR = "output"
 OUTPUT_FRAMES_DIR = os.path.join(OUTPUT_DIR, "simulation_frames")
@@ -221,6 +221,58 @@ class WalkerAgent(Agent):
 
         return bins
 
+    def get_agent_distance_bins(self, x, y, unique_id):
+
+        distances = []
+        for agent in model.schedule.agents:
+
+            if agent.unique_id == unique_id:
+                continue
+
+            agent_x, agent_y = agent.pos
+
+            # Convert tile distance to meters
+            distance = math.sqrt((x - agent_x) ** 2 + (y - agent_y) ** 2) * CELL_SIZE
+            distances.append(distance)
+
+        # Bin the distances (in meters)
+        bins = {
+            "0_25": 0,
+            "25_75": 0,
+            "75_150": 0,
+            "150_250": 0,
+            "250_400": 0,
+            "400_600": 0,
+            "600_800": 0,
+            "800_1000": 0,
+            "1000_1200": 0,
+        }
+        for distance in distances:
+            if distance < 25:
+                bins["0_25"] += 1
+            elif 25 <= distance < 75:
+                bins["25_75"] += 1
+            elif 75 <= distance < 150:
+                bins["75_150"] += 1
+            elif 150 <= distance < 250:
+                bins["150_250"] += 1
+            elif 250 <= distance < 400:
+                bins["250_400"] += 1
+            elif 400 <= distance < 600:
+                bins["400_600"] += 1
+            elif 600 <= distance < 800:
+                bins["600_800"] += 1
+            elif 800 <= distance < 1000:
+                bins["800_1000"] += 1
+            elif 1000 <= distance < 1200:
+                bins["1000_1200"] += 1
+
+        # Convert counts to percentages
+        total_other_agents = len(model.schedule.agents)
+        for key in bins:
+            bins[key] /= total_other_agents
+
+        return bins
 
     def _get_tomb_distance_preference(self, x, y):
         """
@@ -864,7 +916,32 @@ if __name__ == "__main__":
     for key in tomb_distance_bins:
         tomb_distance_bins[key] /= len(model.schedule.agents)
 
-    # print(f"Tomb distance weight: {tomb_distance_weight}\n{tomb_distance_bins}")
+    agent_distance_bins = {
+        "0_25": 0,
+        "25_75": 0,
+        "75_150": 0,
+        "150_250": 0,
+        "250_400": 0,
+        "400_600": 0,
+        "600_800": 0,
+        "800_1000": 0,
+        "1000_1200": 0,
+    }
+
+    for agent in model.schedule.agents:
+        x, y = agent.pos
+        unique_id = agent.unique_id
+        distance_bins = agent.get_agent_distance_bins(x, y, unique_id)
+
+        for key in distance_bins:
+            agent_distance_bins[key] += distance_bins[key]
+
+    for key in agent_distance_bins:
+        agent_distance_bins[key] /= len(model.schedule.agents)
+
+
+
+    print(f"Agent distance weight: {agent_distance_weight}\n{agent_distance_bins}")
     
 
     # x, y = self.pos
