@@ -138,7 +138,7 @@ AGENT
 
 
 class WalkerAgent(Agent):
-    def __init__(self, unique_id, model, start_location, weights, deterministic=True):
+    def __init__(self, unique_id, model, start_location, weights, deterministic=False):
         super().__init__(model)
         self.pos = start_location
         self.steps_taken = 0
@@ -406,7 +406,7 @@ class WalkerAgent(Agent):
         preference = 1 - softmax(np.array([sum_of_errors]))[0]
         return preference
     
-    def _get_slope_preference(self, x, y):
+    def _get_slope(self, x, y):
         """
         Calculates the slope of the terrain at the given coordinates using gradient descent.
         Prefers steeper slopes (magnitude of the gradient vector).
@@ -443,6 +443,12 @@ class WalkerAgent(Agent):
 
         # Calculate the magnitude of the gradient vector
         slope_magnitude = math.sqrt(dz_dx ** 2 + dz_dy ** 2)
+
+        return slope_magnitude
+    
+    def _get_slope_preference(self, x, y):
+
+        slope_magnitude = self._get_slope(x, y)
 
         # Normalize the slope magnitude to get a preference value between 0 and 1
         # You might need to adjust the normalization factor (e.g., 10, or the max slope)
@@ -891,58 +897,125 @@ if __name__ == "__main__":
     for key in elevation_bins:
         elevation_bins[key] /= total_elevations
 
-    # print(f"Elevation weight: {elevation_weight}\n{elevation_bins}")
+    print(f"Elevation weight: {elevation_weight}\n{elevation_bins}")
 
     # get tomb distance bins
-    tomb_distance_bins = {
-        "0_25": 0,
-        "25_75": 0,
-        "75_150": 0,
-        "150_250": 0,
-        "250_400": 0,
-        "400_600": 0,
-        "600_800": 0,
-        "800_1000": 0,
-        "1000_1200": 0,
-    }
+    # tomb_distance_bins = {
+    #     "0_25": 0,
+    #     "25_75": 0,
+    #     "75_150": 0,
+    #     "150_250": 0,
+    #     "250_400": 0,
+    #     "400_600": 0,
+    #     "600_800": 0,
+    #     "800_1000": 0,
+    #     "1000_1200": 0,
+    # }
 
-    for agent in model.schedule.agents:
-        x, y = agent.pos
-        distance_bins = agent.get_tomb_distance_bins(x, y)
+    # for agent in model.schedule.agents:
+    #     x, y = agent.pos
+    #     distance_bins = agent.get_tomb_distance_bins(x, y)
 
-        for key in distance_bins:
-            tomb_distance_bins[key] += distance_bins[key]
+    #     for key in distance_bins:
+    #         tomb_distance_bins[key] += distance_bins[key]
 
-    for key in tomb_distance_bins:
-        tomb_distance_bins[key] /= len(model.schedule.agents)
+    # for key in tomb_distance_bins:
+    #     tomb_distance_bins[key] /= len(model.schedule.agents)
 
-    agent_distance_bins = {
-        "0_25": 0,
-        "25_75": 0,
-        "75_150": 0,
-        "150_250": 0,
-        "250_400": 0,
-        "400_600": 0,
-        "600_800": 0,
-        "800_1000": 0,
-        "1000_1200": 0,
-    }
+    # agent_distance_bins = {
+    #     "0_25": 0,
+    #     "25_75": 0,
+    #     "75_150": 0,
+    #     "150_250": 0,
+    #     "250_400": 0,
+    #     "400_600": 0,
+    #     "600_800": 0,
+    #     "800_1000": 0,
+    #     "1000_1200": 0,
+    # }
 
-    for agent in model.schedule.agents:
-        x, y = agent.pos
-        unique_id = agent.unique_id
-        distance_bins = agent.get_agent_distance_bins(x, y, unique_id)
+    # for agent in model.schedule.agents:
+    #     x, y = agent.pos
+    #     unique_id = agent.unique_id
+    #     distance_bins = agent.get_agent_distance_bins(x, y, unique_id)
 
-        for key in distance_bins:
-            agent_distance_bins[key] += distance_bins[key]
+    #     for key in distance_bins:
+    #         agent_distance_bins[key] += distance_bins[key]
 
-    for key in agent_distance_bins:
-        agent_distance_bins[key] /= len(model.schedule.agents)
+    # for key in agent_distance_bins:
+    #     agent_distance_bins[key] /= len(model.schedule.agents)
 
 
 
-    print(f"Agent distance weight: {agent_distance_weight}\n{agent_distance_bins}")
+    # print(f"Agent distance weight: {agent_distance_weight}\n{agent_distance_bins}")
     
+    # tomb_slope_bins = {
+    #     "<-10": 0,
+    #     "-10_-6": 0,
+    #     "-6_-2": 0,
+    #     "-2_2": 0,
+    #     "2_6": 0,
+    #     "6_10": 0
+    # }
+
+    # # get real tomb slope data
+    # for tomb_x, tomb_y in model.tomb_locations:
+    #     slope = model.schedule.agents[0]._get_slope(tomb_x, tomb_y)
+
+    #     if slope < -10:
+    #         tomb_slope_bins["<-10"] += 1
+    #     elif slope < -6:
+    #         tomb_slope_bins["-10_-6"] += 1
+    #     elif slope < -2:
+    #         tomb_slope_bins["-6_-2"] += 1
+    #     elif slope < 2:
+    #         tomb_slope_bins["-2_2"] += 1
+    #     elif slope < 6:
+    #         tomb_slope_bins["2_6"] += 1
+    #     elif slope <= 10:
+    #         tomb_slope_bins["6_10"] += 1
+        
+    # for key in tomb_slope_bins:
+    #     tomb_slope_bins[key] /= len(model.tomb_locations)
+
+
+    # print(f"Tomb slope data:\n{tomb_slope_bins}")
+
+    # agent_slope_bins = {
+    #     "<-10": 0,
+    #     "-10_-6": 0,
+    #     "-6_-2": 0,
+    #     "-2_2": 0,
+    #     "2_6": 0,
+    #     "6_10": 0,
+    #     ">10": 0
+    # }
+
+    # for agent in model.schedule.agents:
+    #     x, y = agent.pos
+    #     slope = agent._get_slope(x, y)
+
+    #     if slope < -10:
+    #         agent_slope_bins["<-10"] += 1
+    #     elif slope < -6:
+    #         agent_slope_bins["-10_-6"] += 1
+    #     elif slope < -2:
+    #         agent_slope_bins["-6_-2"] += 1
+    #     elif slope < 2:
+    #         agent_slope_bins["-2_2"] += 1
+    #     elif slope < 6:
+    #         agent_slope_bins["2_6"] += 1
+    #     elif slope <= 10:
+    #         agent_slope_bins["6_10"] += 1
+    #     elif slope > 10:
+    #         agent_slope_bins[">10"] += 1
+        
+    # for key in agent_slope_bins:
+    #     agent_slope_bins[key] /= len(model.schedule.agents)
+
+
+    # print(f"Agent slope data:\n{agent_slope_bins}")
+
 
     # x, y = self.pos
     # tile_elevation = self.model.elevation[y, x]
